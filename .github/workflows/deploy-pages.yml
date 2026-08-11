@@ -1,0 +1,63 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Edvanz Admin (Angular 17) — GitHub Pages deployment
+#
+# Builds the admin app and publishes the static output to the `gh-pages` branch
+# on every push to `master` (the working branch). GitHub Pages already serves
+# gh-pages at https://muhammadkhha-png.github.io/EdvanzAdminUI/, so this keeps the
+# existing deploy target — no repository settings change is required.
+#
+# Uses only first-party actions + the built-in GITHUB_TOKEN (no PAT, no third-party
+# publish action). Replicates what the manual `angular-cli-ghpages` step produced:
+# the built browser output, plus a SPA 404.html fallback and .nojekyll.
+# ─────────────────────────────────────────────────────────────────────────────
+name: Deploy Admin to GitHub Pages
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write        # required to push the built output to the gh-pages branch
+
+concurrency:
+  group: deploy-pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    name: Build and publish to gh-pages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Production build with the Pages base-href, then add the SPA deep-link
+      # fallback (404.html = index.html) and .nojekyll so hashed asset folders
+      # are served as-is.
+      - name: Build
+        run: |
+          npx ng build --configuration production --base-href /EdvanzAdminUI/
+          cp dist/edvanz-admin/browser/index.html dist/edvanz-admin/browser/404.html
+          touch dist/edvanz-admin/browser/.nojekyll
+
+      # Force-push the built output as a fresh single commit onto gh-pages.
+      - name: Publish to gh-pages
+        run: |
+          cd dist/edvanz-admin/browser
+          git init -q
+          git checkout -q -b gh-pages
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Deploy ${GITHUB_SHA} [skip ci]"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages:gh-pages
