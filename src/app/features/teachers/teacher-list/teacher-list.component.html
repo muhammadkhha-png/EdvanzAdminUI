@@ -33,6 +33,7 @@
                 <th>Code</th>
                 <th>Phone</th>
                 <th>Subscription</th>
+                <th>Type</th>
                 <th>Status</th>
                 <th class="text-end">Actions</th>
               </tr>
@@ -47,6 +48,19 @@
                     <app-subscription-status-badge
                       [status]="teacher.subscriptionStatus ?? ''"
                     />
+                  </td>
+                  <td>
+                    @if (teacher.planType) {
+                      <span
+                        class="badge rounded-pill"
+                        [class.text-bg-primary]="teacher.planType === 'Full'"
+                        [class.text-bg-warning]="teacher.planType === 'Managerial'"
+                      >
+                        {{ teacher.planType }}
+                      </span>
+                    } @else {
+                      <span class="text-muted">—</span>
+                    }
                   </td>
                   <td>
                     <span

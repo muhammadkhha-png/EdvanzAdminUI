@@ -12,6 +12,8 @@ export interface TeacherListItem {
   accountStatus: string;
   isConfigurationCompleted: boolean;
   subscriptionStatus?: string;
+  /** 'Full' | 'Managerial' — latest subscription's plan type (absent if never subscribed). */
+  planType?: string;
   subscriptionEndDate?: string;
   createdAt: string;
 }
