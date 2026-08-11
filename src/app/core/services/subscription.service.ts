@@ -4,6 +4,7 @@ import { map, Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { ApiResult } from '../models/api-result.model';
 import {
+  AdminActivateManagerialRequest,
   AdminActivateRequest,
   AdminExtendRequest,
   AdminPendingQueueItem,
@@ -46,12 +47,29 @@ export class SubscriptionService {
 
   /**
    * POST /api/admin/subscriptions/activate
-   * Manually activates a subscription (SuperAdminOverride, no payment).
+   * Manually activates a FULL subscription (SuperAdminOverride, no payment).
    */
   activate(request: AdminActivateRequest): Observable<CurrentSubscriptionDto> {
     return this.http
       .post<ApiResult<CurrentSubscriptionDto>>(
         `${this.base}/admin/subscriptions/activate`,
+        request,
+      )
+      .pipe(map((r) => r.data));
+  }
+
+  /**
+   * POST /api/admin/subscriptions/activate-managerial
+   * Manually activates a MANAGERIAL subscription (SuperAdminOverride, no payment):
+   * while active, no student or parent account may be linked to the teacher.
+   * `removeExistingLinks` true also severs students/parents already linked.
+   */
+  activateManagerial(
+    request: AdminActivateManagerialRequest,
+  ): Observable<CurrentSubscriptionDto> {
+    return this.http
+      .post<ApiResult<CurrentSubscriptionDto>>(
+        `${this.base}/admin/subscriptions/activate-managerial`,
         request,
       )
       .pipe(map((r) => r.data));

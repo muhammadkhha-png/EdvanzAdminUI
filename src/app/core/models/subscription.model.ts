@@ -1,11 +1,18 @@
 // ── Admin subscription endpoints (/api/admin/subscriptions/*) ────────────────
 
+/** Subscription plan type. Full = students/parents allowed; Managerial = blocked. */
+export type SubscriptionPlanType = 'Full' | 'Managerial';
+
 export interface CurrentSubscriptionDto {
   id: number;
-  subscriptionStatus: string;
+  /** Derived status (Active/ExpiringSoon/Expired) — backend field name is `status`. */
+  status: string;
+  /** 'Full' | 'Managerial'. */
+  planType: SubscriptionPlanType;
   startDate: string;
   endDate: string;
   daysRemaining: number;
+  renewalAmountEGP?: number;
 }
 
 /** POST /api/admin/subscriptions/activate */
@@ -13,6 +20,19 @@ export interface AdminActivateRequest {
   teacherId: number;
   startDate?: string | null;
   endDate?: string | null;
+}
+
+/**
+ * POST /api/admin/subscriptions/activate-managerial
+ * Activates a MANAGERIAL subscription — no student or parent account may be linked
+ * to the teacher while it is active. `removeExistingLinks` true also severs any
+ * students/parents already linked; false keeps them (only new links are blocked).
+ */
+export interface AdminActivateManagerialRequest {
+  teacherId: number;
+  startDate?: string | null;
+  endDate?: string | null;
+  removeExistingLinks: boolean;
 }
 
 /** POST /api/admin/subscriptions/extend */

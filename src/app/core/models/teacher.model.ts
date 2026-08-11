@@ -57,6 +57,8 @@ export interface StudentCapacityPackageDto {
 export interface TeacherSubscriptionDto {
   id: number;
   subscriptionStatus: string;
+  /** 'Full' | 'Managerial' — present since the managerial-subscription feature. */
+  planType?: string;
   startDate: string;
   endDate: string;
   daysRemaining: number;
