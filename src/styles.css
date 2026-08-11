@@ -15,6 +15,13 @@ body {
   color: #0f172a;
 }
 
+/* Prevent stray horizontal scroll on mobile (e.g. the off-canvas sidebar sitting
+   at translateX(-100%) while closed). Wide content still scrolls inside its own
+   .table-responsive container. */
+body {
+  overflow-x: hidden;
+}
+
 .btn-primary {
   --bs-btn-bg: var(--edvanz-primary);
   --bs-btn-border-color: var(--edvanz-primary);
@@ -28,4 +35,12 @@ body {
 
 .table > :not(caption) > * > * {
   padding: 0.75rem 0.5rem;
+}
+
+/* Tighter, smaller table cells on phones so wide admin tables stay legible. */
+@media (max-width: 575.98px) {
+  .table > :not(caption) > * > * {
+    padding: 0.55rem 0.4rem;
+    font-size: 0.9rem;
+  }
 }

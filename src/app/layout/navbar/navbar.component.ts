@@ -56,6 +56,13 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
         cursor: pointer;
         color: var(--edvanz-muted, #475569);
       }
+      /* The drawer toggle is only meaningful on mobile; the sidebar is always
+         visible on desktop, so hide the button there. */
+      @media (min-width: 992px) {
+        .toggle-btn {
+          display: none;
+        }
+      }
       .user-block {
         display: flex;
         align-items: center;

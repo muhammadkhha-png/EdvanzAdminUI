@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { Component, input, output } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 
 interface NavItem {
@@ -7,18 +7,21 @@ interface NavItem {
   route: string;
 }
 
-/** Responsive left navigation. Collapse state is owned by the parent layout. */
+/**
+ * Left navigation. On desktop (>= 992px) it is a static full-height column.
+ * On mobile it becomes an off-canvas drawer: hidden by default, slid in when
+ * `open` is true (toggled by the navbar ☰), and it emits `navigate` on a link
+ * tap so the parent can close the drawer after routing.
+ */
 @Component({
   selector: 'app-sidebar',
   standalone: true,
   imports: [RouterLink, RouterLinkActive],
   template: `
-    <aside class="sidebar" [class.collapsed]="collapsed()">
+    <aside class="sidebar" [class.open]="open()">
       <div class="brand">
         <span class="brand-mark">E</span>
-        @if (!collapsed()) {
-          <span class="brand-text">Edvanz Admin</span>
-        }
+        <span class="brand-text">Edvanz Admin</span>
       </div>
       <nav class="nav-list">
         @for (item of items; track item.route) {
@@ -27,11 +30,10 @@ interface NavItem {
             [routerLink]="item.route"
             routerLinkActive="active"
             [title]="item.label"
+            (click)="navigate.emit()"
           >
             <span class="nav-icon">{{ item.icon }}</span>
-            @if (!collapsed()) {
-              <span class="nav-label">{{ item.label }}</span>
-            }
+            <span class="nav-label">{{ item.label }}</span>
           </a>
         }
       </nav>
@@ -45,11 +47,7 @@ interface NavItem {
         color: #e2e8f0;
         display: flex;
         flex-direction: column;
-        transition: width 0.2s ease;
         flex-shrink: 0;
-      }
-      .sidebar.collapsed {
-        width: 72px;
       }
       .brand {
         display: flex;
@@ -95,20 +93,37 @@ interface NavItem {
       }
       .nav-icon {
         font-size: 1.1rem;
-        
         text-align: center;
+      }
+
+      /* Mobile / tablet: off-canvas drawer that slides over the content. */
+      @media (max-width: 991.98px) {
+        .sidebar {
+          position: fixed;
+          top: 0;
+          left: 0;
+          height: 100vh;
+          z-index: 1050;
+          transform: translateX(-100%);
+          transition: transform 0.25s ease;
+          box-shadow: 2px 0 12px rgba(0, 0, 0, 0.25);
+        }
+        .sidebar.open {
+          transform: translateX(0);
+        }
       }
     `,
   ],
 })
 export class SidebarComponent {
-  readonly collapsed = input(false);
+  readonly open = input(false);
+  readonly navigate = output<void>();
 
   // Emoji icons keep the shell dependency-free (no icon-font package).
- protected readonly items: NavItem[] = [
-    { label: 'Dashboard  ', icon: '📊', route: '/dashboard' },
-    { label: 'Teachers  ', icon: '🧑‍🏫', route: '/teachers' },
-    { label: 'Assistants  ', icon: '🧑‍💼', route: '/assistants' },
-    { label: 'Students  ', icon: '🎓', route: '/students' },
+  protected readonly items: NavItem[] = [
+    { label: 'Dashboard', icon: '📊', route: '/dashboard' },
+    { label: 'Teachers', icon: '🧑‍🏫', route: '/teachers' },
+    { label: 'Assistants', icon: '🧑‍💼', route: '/assistants' },
+    { label: 'Students', icon: '🎓', route: '/students' },
   ];
 }

@@ -30,6 +30,7 @@
             <thead>
               <tr>
                 <th>Name</th>
+                <th>Username</th>
                 <th>Code</th>
                 <th>Phone</th>
                 <th>Subscription</th>
@@ -42,6 +43,7 @@
               @for (teacher of p.data; track teacher.id) {
                 <tr>
                   <td class="fw-medium">{{ teacher.fullName }}</td>
+                  <td class="text-muted">{{ teacher.username }}</td>
                   <td class="text-muted font-monospace">{{ teacher.teacherCode }}</td>
                   <td>{{ teacher.phoneNumber ?? '—' }}</td>
                   <td>
@@ -99,7 +101,7 @@
                     >
                       Reset Password
                     </button>
-                    <!-- <button type="button" class="btn btn-sm btn-outline-danger ms-1" (click)="softDelete(teacher)">Delete</button> -->
+                    <button type="button" class="btn btn-sm btn-outline-danger ms-1" (click)="softDelete(teacher)">Delete</button>
                   </td>
                 </tr>
               }
