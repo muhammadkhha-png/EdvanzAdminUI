@@ -1,0 +1,292 @@
+diff --git a/src/app/core/models/student-account.model.ts b/src/app/core/models/student-account.model.ts
+index f3cc11c..ac56ea3 100644
+--- a/src/app/core/models/student-account.model.ts
++++ b/src/app/core/models/student-account.model.ts
+@@ -39,6 +39,21 @@ export interface StudentAccountListQuery {
+   teacherId?: number | null;
+ }
+ 
++// ── GET api/teacher/student-links/admin/teachers/{teacherId}/unbound-links ─
++// Mirrors Edvanz.Application.Dtos.TeacherLinks.LinkedStudentListItemDto as
++// returned by that endpoint — an Active, accepted connection between a
++// student account and this teacher that isn't bound to a roster record yet.
++// Used by the Link Teacher action to find the linkId for a given account
++// (matched by studentAccountCode) before binding it via a teacher-assigned
++// student code.
++export interface StudentAccountUnboundLink {
++  linkId: number;
++  linkedAt: string;
++  studentAccountCode: string;
++  studentFullName: string;
++  studentPhoneNumber?: string;
++}
++
+ // ── GET /api/studentuser/by-code/{accountCode} ──────────────────────────────
+ // Mirrors StudentUserProfileDto. Used here purely as the bridge from
+ // studentAccountId (StudentUser.Id) to userId (User.Id) that
+diff --git a/src/app/core/services/student-account.service.ts b/src/app/core/services/student-account.service.ts
+index 2e777bb..242298a 100644
+--- a/src/app/core/services/student-account.service.ts
++++ b/src/app/core/services/student-account.service.ts
+@@ -7,6 +7,7 @@ import { PaginatedResponse } from '../models/paginated-response.model';
+ import {
+   StudentAccountListItem,
+   StudentAccountListQuery,
++  StudentAccountUnboundLink,
+   StudentUserAccountLookup,
+ } from '../models/student-account.model';
+ 
+@@ -53,4 +54,37 @@ export class StudentAccountService {
+       )
+       .pipe(map((r) => r.data.userId));
+   }
++
++  // ── Link Teacher (TeacherStudentLinksController's admin/* actions) ───────
++  // These endpoints belong to a shared controller (not owned by the Students
++  // or Student Accounts module specifically), but the calls themselves are
++  // this page's own Link Teacher feature, so they're kept here rather than
++  // duplicated into/reused from StudentService.
++
++  /**
++   * GET api/teacher/student-links/admin/teachers/{teacherId}/unbound-links —
++   * this teacher's Active-but-unbound connections. The Link Teacher action
++   * matches the entry whose studentAccountCode equals the target row's
++   * accountCode to find the linkId to bind.
++   */
++  getUnboundLinksForTeacher(teacherId: number): Observable<StudentAccountUnboundLink[]> {
++    return this.http
++      .get<ApiResult<StudentAccountUnboundLink[]>>(
++        `${this.base}/teacher/student-links/admin/teachers/${teacherId}/unbound-links`,
++      )
++      .pipe(map((r) => r.data ?? []));
++  }
++
++  /**
++   * POST api/teacher/student-links/admin/{linkId}/bind — binds the accepted
++   * connection to the roster record identified by the TEACHER-assigned
++   * student code (BindStudentLinkDto.StudentCode), completing the Link
++   * Teacher action without needing the internal TeacherStudentId.
++   */
++  bindLinkByStudentCode(linkId: number, studentCode: string): Observable<ApiResult<unknown>> {
++    return this.http.post<ApiResult<unknown>>(
++      `${this.base}/teacher/student-links/admin/${linkId}/bind`,
++      { studentCode },
++    );
++  }
+ }
+diff --git a/src/app/features/student-accounts/student-accounts-list/student-accounts-list.component.html b/src/app/features/student-accounts/student-accounts-list/student-accounts-list.component.html
+index 1705926..0eb9b60 100644
+--- a/src/app/features/student-accounts/student-accounts-list/student-accounts-list.component.html
++++ b/src/app/features/student-accounts/student-accounts-list/student-accounts-list.component.html
+@@ -208,25 +208,19 @@
+   </div>
+ }
+ 
+-<!-- ── Link Teacher modal — UI built per spec; submit disabled pending a backend
+-     endpoint (see class doc: no SuperAdmin-reachable endpoint links a teacher
+-     to a student account directly from a Teacher Code + Student Code pair). ── -->
++<!-- ── Link Teacher modal ───────────────────────────────────────────────── -->
+ @if (linkTeacherTarget(); as target) {
+   <div class="pw-backdrop" (click)="closeLinkTeacher()"></div>
+   <div class="pw-modal" role="dialog" aria-modal="true">
+     <h5 class="pw-title">Link teacher — {{ target.fullName }}</h5>
+     <p class="pw-message">
+-      Links the entered teacher to this student account. {{ target.fullName }} will gain
+-      access to that teacher's content once linked.
++      Links {{ target.fullName }} to the roster record the student code below resolves to,
++      under the teacher identified by the teacher code. The student must have already sent
++      a link request to this teacher from the app and had it accepted — this action attaches
++      the accepted connection to the right roster record, it does not create the connection.
+     </p>
+ 
+-    <div class="alert alert-warning py-2 px-3 mb-3" role="alert">
+-      This action isn't available yet — the backend doesn't currently expose an endpoint
+-      for directly linking a teacher and a student account by code. Linking today only
+-      happens when the student sends a request from the app and the teacher accepts it.
+-    </div>
+-
+-    <form [formGroup]="linkTeacherForm" novalidate>
++    <form [formGroup]="linkTeacherForm" (ngSubmit)="submitLinkTeacher()" novalidate>
+       <div class="mb-3">
+         <label class="form-label" for="teacherCode">Teacher Code</label>
+         <input
+@@ -235,26 +229,41 @@
+           class="form-control"
+           formControlName="teacherCode"
+           placeholder="e.g. 73491990"
++          [class.is-invalid]="isLinkTeacherInvalid('teacherCode')"
+         />
++        @if (isLinkTeacherInvalid('teacherCode')) {
++          <div class="invalid-feedback d-block">Teacher code is required.</div>
++        }
+       </div>
+ 
+       <div class="mb-2">
+-        <label class="form-label" for="studentCode">Student Code (optional)</label>
++        <label class="form-label" for="studentCode">Student Code</label>
+         <input
+           id="studentCode"
+           type="text"
+           class="form-control"
+           formControlName="studentCode"
+           placeholder="e.g. A5"
++          [class.is-invalid]="isLinkTeacherInvalid('studentCode')"
+         />
++        @if (isLinkTeacherInvalid('studentCode')) {
++          <div class="invalid-feedback d-block">
++            Student code is required — the code this teacher assigned the student in their roster.
++          </div>
++        }
+       </div>
+ 
+       <div class="pw-actions">
+-        <button type="button" class="btn btn-outline-secondary" (click)="closeLinkTeacher()">
+-          Close
++        <button
++          type="button"
++          class="btn btn-outline-secondary"
++          [disabled]="linkTeacherSubmitting()"
++          (click)="closeLinkTeacher()"
++        >
++          Cancel
+         </button>
+-        <button type="button" class="btn btn-primary" disabled title="Not yet supported by the backend">
+-          Link teacher
++        <button type="submit" class="btn btn-primary" [disabled]="linkTeacherSubmitting()">
++          {{ linkTeacherSubmitting() ? 'Linking…' : 'Link teacher' }}
+         </button>
+       </div>
+     </form>
+diff --git a/src/app/features/student-accounts/student-accounts-list/student-accounts-list.component.ts b/src/app/features/student-accounts/student-accounts-list/student-accounts-list.component.ts
+index 47e05bd..505a09b 100644
+--- a/src/app/features/student-accounts/student-accounts-list/student-accounts-list.component.ts
++++ b/src/app/features/student-accounts/student-accounts-list/student-accounts-list.component.ts
+@@ -51,13 +51,21 @@ function passwordsMatchValidator(group: AbstractControl): ValidationErrors | nul
+  * userId via GET studentuser/by-code/{accountCode} when the modal opens,
+  * then submit exactly like Assistant/Teacher reset does.
+  *
+- * Link Teacher: built per spec (Teacher Code + Student Code inputs) but the
+- * submit is intentionally disabled. There is no SuperAdmin-reachable backend
+- * endpoint that creates a teacher-student link directly from a code pair —
+- * linking is request/approval-only (student requests, teacher accepts), and
+- * the admin bind/unbind endpoints only re-point an already-Active link onto
+- * a different module's roster record. Wire this up once a matching endpoint
+- * exists; see the inline note in the template.
++ * Link Teacher: there is no single endpoint that creates a link directly
++ * from a raw (TeacherCode, StudentCode) pair — linking is request/approval
++ * only (student requests, teacher accepts), and it only becomes bindable
++ * once Active. So this resolves three existing calls in sequence:
++ *   1. TeacherService.getTeachers({ search: teacherCode }) — the admin
++ *      teacher list already supports searching by TeacherCode; take the
++ *      exact match to get teacherId (GET teacher/list has no by-code
++ *      lookup that returns an id — the public GET teacher/by-code/{code}
++ *      deliberately omits it).
++ *   2. StudentAccountService.getUnboundLinksForTeacher(teacherId) — find
++ *      the Active-but-unbound connection whose studentAccountCode matches
++ *      this row's accountCode, giving us its linkId. If none exists, this
++ *      student hasn't connected to that teacher yet (nothing to bind).
++ *   3. StudentAccountService.bindLinkByStudentCode(linkId, studentCode) —
++ *      binds it to the roster record the teacher-assigned code resolves to.
+  */
+ @Component({
+   selector: 'app-student-accounts-list',
+@@ -99,11 +107,12 @@ export class StudentAccountsListComponent implements OnInit {
+     { validators: passwordsMatchValidator },
+   );
+ 
+-  // ── Link Teacher modal (UI only — see class doc) ──────────────────────────
++  // ── Link Teacher modal ─────────────────────────────────────────────────
+   protected readonly linkTeacherTarget = signal<StudentAccountListItem | null>(null);
++  protected readonly linkTeacherSubmitting = signal(false);
+   protected readonly linkTeacherForm = this.fb.nonNullable.group({
+     teacherCode: ['', [Validators.required]],
+-    studentCode: [''],
++    studentCode: ['', [Validators.required]],
+   });
+ 
+   ngOnInit(): void {
+@@ -212,7 +221,7 @@ export class StudentAccountsListComponent implements OnInit {
+     });
+   }
+ 
+-  // ── Link Teacher (UI only) ────────────────────────────────────────────────
++  // ── Link Teacher ──────────────────────────────────────────────────────────
+ 
+   protected openLinkTeacher(a: StudentAccountListItem): void {
+     this.linkTeacherForm.reset();
+@@ -220,9 +229,75 @@ export class StudentAccountsListComponent implements OnInit {
+   }
+ 
+   protected closeLinkTeacher(): void {
++    if (this.linkTeacherSubmitting()) return;
+     this.linkTeacherTarget.set(null);
+   }
+ 
++  protected isLinkTeacherInvalid(control: 'teacherCode' | 'studentCode'): boolean {
++    const c = this.linkTeacherForm.controls[control];
++    return c.invalid && (c.touched || c.dirty);
++  }
++
++  /**
++   * Resolves teacherCode -> teacherId (via the admin teacher list search),
++   * then studentAccountCode -> linkId (via that teacher's unbound links),
++   * then binds the link with the entered studentCode. See class doc.
++   */
++  protected submitLinkTeacher(): void {
++    const target = this.linkTeacherTarget();
++    if (!target) return;
++
++    if (this.linkTeacherForm.invalid) {
++      this.linkTeacherForm.markAllAsTouched();
++      return;
++    }
++
++    const { teacherCode, studentCode } = this.linkTeacherForm.getRawValue();
++    const trimmedTeacherCode = teacherCode.trim();
++    const trimmedStudentCode = studentCode.trim();
++
++    this.linkTeacherSubmitting.set(true);
++
++    this.teacherService.getTeachers({ page: 1, pageSize: 5, search: trimmedTeacherCode }).subscribe({
++      next: (page) => {
++        const teacher = page.data.find(
++          (t) => t.teacherCode.toLowerCase() === trimmedTeacherCode.toLowerCase(),
++        );
++        if (!teacher) {
++          this.toast.error(`No teacher found with code "${trimmedTeacherCode}".`);
++          this.linkTeacherSubmitting.set(false);
++          return;
++        }
++
++        this.studentAccountService.getUnboundLinksForTeacher(teacher.id).subscribe({
++          next: (links) => {
++            const link = links.find((l) => l.studentAccountCode === target.accountCode);
++            if (!link) {
++              this.toast.error(
++                `${target.fullName} isn't connected to ${teacher.fullName} yet — the student ` +
++                  `needs to send a link request from the app and have the teacher accept it first.`,
++              );
++              this.linkTeacherSubmitting.set(false);
++              return;
++            }
++
++            this.studentAccountService.bindLinkByStudentCode(link.linkId, trimmedStudentCode).subscribe({
++              next: () => {
++                this.linkTeacherSubmitting.set(false);
++                this.toast.success(`Linked ${target.fullName} to ${teacher.fullName}.`);
++                this.linkTeacherTarget.set(null);
++                this.load();
++              },
++              error: () => this.linkTeacherSubmitting.set(false),
++            });
++          },
++          error: () => this.linkTeacherSubmitting.set(false),
++        });
++      },
++      error: () => this.linkTeacherSubmitting.set(false),
++    });
++  }
++
+   // ── Data loading ─────────────────────────────────────────────────────────
+ 
+   private loadTeacherLookup(): void {

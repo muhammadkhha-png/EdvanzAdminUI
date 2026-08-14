@@ -53,6 +53,13 @@ export const APP_ROUTES: Routes = [
             (m) => m.STUDENTS_ROUTES,
           ),
       },
+      {
+        path: 'student-accounts',
+        loadChildren: () =>
+          import('./features/student-accounts/student-accounts.routes').then(
+            (m) => m.STUDENT_ACCOUNTS_ROUTES,
+          ),
+      },
     ],
   },
   {

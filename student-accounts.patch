@@ -1,0 +1,790 @@
+diff --git a/src/app/app.routes.ts b/src/app/app.routes.ts
+index ad549e9..8d22eef 100644
+--- a/src/app/app.routes.ts
++++ b/src/app/app.routes.ts
+@@ -53,6 +53,13 @@ export const APP_ROUTES: Routes = [
+             (m) => m.STUDENTS_ROUTES,
+           ),
+       },
++      {
++        path: 'student-accounts',
++        loadChildren: () =>
++          import('./features/student-accounts/student-accounts.routes').then(
++            (m) => m.STUDENT_ACCOUNTS_ROUTES,
++          ),
++      },
+     ],
+   },
+   {
+diff --git a/src/app/core/models/student-account.model.ts b/src/app/core/models/student-account.model.ts
+new file mode 100644
+index 0000000..f3cc11c
+--- /dev/null
++++ b/src/app/core/models/student-account.model.ts
+@@ -0,0 +1,59 @@
++// ── Student Accounts admin directory (StudentUserController) ───────────────
++// Deliberately separate from student.model.ts: that file models the Students
++// module (TeacherStudentController's per-teacher roster, id space =
++// TeacherStudent.Id). This file models StudentUser accounts (the mobile-app
++// login identity), id space = StudentUser.Id. Same person can appear in both
++// as different rows with different ids — never mix the two.
++
++/** One teacher this student account currently holds an ACTIVE link to. */
++export interface StudentAccountTeacherLink {
++  teacherId: number;
++  teacherCode: string;
++  /** The per-teacher student code that teacher assigned this account. Null when not set. */
++  studentCode: string | null;
++  teacherName: string;
++}
++
++// ── Row for GET /api/studentuser/list ───────────────────────────────────────
++// Mirrors Edvanz.Application.Dtos.StudentUser.StudentAccountListItemDto exactly.
++export interface StudentAccountListItem {
++  /** StudentUser.Id — NOT the owning User.Id. Do not pass this to auth/user-scoped endpoints. */
++  studentAccountId: number;
++  fullName: string;
++  userName: string;
++  accountCode: string;
++  phoneNumber?: string;
++  /** Empty when the account has never linked to a teacher, or all links are non-Active. */
++  teachers: StudentAccountTeacherLink[];
++}
++
++// ── Query params for GET /api/studentuser/list ──────────────────────────────
++// Mirrors StudentAccountListRequest — deliberately its own shape (no sortBy),
++// same reasoning noted on the backend DTO.
++export interface StudentAccountListQuery {
++  page?: number;
++  pageSize?: number;
++  /** Matches account full name, or the per-teacher student code of any ACTIVE teacher link. */
++  search?: string;
++  /** Restrict to accounts ACTIVE-linked to this teacher. */
++  teacherId?: number | null;
++}
++
++// ── GET /api/studentuser/by-code/{accountCode} ──────────────────────────────
++// Mirrors StudentUserProfileDto. Used here purely as the bridge from
++// studentAccountId (StudentUser.Id) to userId (User.Id) that
++// AuthService.forceChangePassword requires — the list endpoint doesn't
++// expose userId directly.
++export interface StudentUserAccountLookup {
++  id: number;
++  userId: number;
++  studentAccountCode: string;
++  fullName: string;
++  email?: string;
++  phoneNumber?: string;
++  languagePreference?: string;
++  accountStatus: string;
++  isFirstLogin: boolean;
++  createdAt: string;
++  linkedTeacherCount: number;
++}
+diff --git a/src/app/core/services/student-account.service.ts b/src/app/core/services/student-account.service.ts
+new file mode 100644
+index 0000000..2e777bb
+--- /dev/null
++++ b/src/app/core/services/student-account.service.ts
+@@ -0,0 +1,56 @@
++import { HttpClient, HttpParams } from '@angular/common/http';
++import { inject, Injectable } from '@angular/core';
++import { map, Observable } from 'rxjs';
++import { environment } from '../../../environments/environment';
++import { ApiResult } from '../models/api-result.model';
++import { PaginatedResponse } from '../models/paginated-response.model';
++import {
++  StudentAccountListItem,
++  StudentAccountListQuery,
++  StudentUserAccountLookup,
++} from '../models/student-account.model';
++
++/**
++ * SuperAdmin "Student Accounts" directory — targets StudentUserController.
++ * Distinct from StudentService (Students module / TeacherStudentController):
++ * different backend controller, different entity, different id space.
++ * StudentAccountListItem.studentAccountId is StudentUser.Id, never User.Id.
++ */
++@Injectable({ providedIn: 'root' })
++export class StudentAccountService {
++  private readonly http = inject(HttpClient);
++  private readonly base = environment.apiBaseUrl;
++
++  /** GET studentuser/list — platform-wide, paginated, filterable by teacherId + search. */
++  getStudentAccounts(
++    query: StudentAccountListQuery,
++  ): Observable<PaginatedResponse<StudentAccountListItem[]>> {
++    let params = new HttpParams()
++      .set('page', query.page ?? 1)
++      .set('pageSize', query.pageSize ?? 20);
++
++    if (query.search) params = params.set('search', query.search);
++    if (query.teacherId != null) params = params.set('teacherId', query.teacherId);
++
++    return this.http
++      .get<ApiResult<PaginatedResponse<StudentAccountListItem[]>>>(
++        `${this.base}/studentuser/list`,
++        { params },
++      )
++      .pipe(map((r) => r.data));
++  }
++
++  /**
++   * GET studentuser/by-code/{accountCode} — resolves the owning User.Id for a
++   * student account. Not role-restricted beyond [Authorize], so a SuperAdmin
++   * JWT is accepted. This is the bridge to AuthService.forceChangePassword,
++   * which targets User.Id, not StudentUser.Id.
++   */
++  getUserIdByAccountCode(accountCode: string): Observable<number> {
++    return this.http
++      .get<ApiResult<StudentUserAccountLookup>>(
++        `${this.base}/studentuser/by-code/${encodeURIComponent(accountCode)}`,
++      )
++      .pipe(map((r) => r.data.userId));
++  }
++}
+diff --git a/src/app/features/student-accounts/student-accounts-list/student-accounts-list.component.css b/src/app/features/student-accounts/student-accounts-list/student-accounts-list.component.css
+new file mode 100644
+index 0000000..dd74f34
+--- /dev/null
++++ b/src/app/features/student-accounts/student-accounts-list/student-accounts-list.component.css
+@@ -0,0 +1,87 @@
++.page-header {
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
++  gap: 1rem;
++  margin-bottom: 1.5rem;
++  flex-wrap: wrap;
++}
++.card {
++  border: 1px solid var(--edvanz-border, #e5e7eb);
++  border-radius: 14px;
++}
++.filters-row {
++  display: flex;
++  gap: 0.75rem;
++  flex-wrap: wrap;
++}
++.filter-teacher {
++  min-width: 260px;
++}
++.filter-search {
++  flex: 1;
++  min-width: 240px;
++}
++
++/* ── Teachers column: compact stacked list, expandable past 2 entries ───── */
++.teachers-cell {
++  min-width: 220px;
++  max-width: 320px;
++}
++.teacher-stack {
++  display: flex;
++  flex-direction: column;
++  gap: 0.4rem;
++}
++.teacher-chip {
++  display: flex;
++  flex-direction: column;
++  border: 1px solid var(--edvanz-border, #e5e7eb);
++  border-radius: 8px;
++  padding: 0.35rem 0.6rem;
++  background: #fafafa;
++}
++.teacher-name {
++  font-weight: 500;
++  font-size: 0.88rem;
++}
++.teacher-meta {
++  color: var(--edvanz-muted, #6b7280);
++  font-size: 0.76rem;
++}
++
++/* ── Modals — identical to assistant-list/teacher-list password modal ───── */
++.pw-backdrop {
++  position: fixed;
++  inset: 0;
++  background: rgba(15, 23, 42, 0.45);
++  z-index: 1085;
++}
++.pw-modal {
++  position: fixed;
++  top: 50%;
++  left: 50%;
++  transform: translate(-50%, -50%);
++  background: #fff;
++  border-radius: 14px;
++  padding: 1.5rem;
++  width: min(440px, 92vw);
++  max-height: 85vh;
++  overflow-y: auto;
++  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
++  z-index: 1086;
++}
++.pw-title {
++  margin: 0 0 0.5rem;
++  font-weight: 600;
++}
++.pw-message {
++  color: var(--edvanz-muted, #6b7280);
++  margin-bottom: 1.25rem;
++}
++.pw-actions {
++  display: flex;
++  justify-content: flex-end;
++  gap: 0.5rem;
++  margin-top: 0.5rem;
++}
+diff --git a/src/app/features/student-accounts/student-accounts-list/student-accounts-list.component.html b/src/app/features/student-accounts/student-accounts-list/student-accounts-list.component.html
+new file mode 100644
+index 0000000..1705926
+--- /dev/null
++++ b/src/app/features/student-accounts/student-accounts-list/student-accounts-list.component.html
+@@ -0,0 +1,262 @@
++<div class="page-header">
++  <div>
++    <h2 class="h4 mb-1">Student Accounts</h2>
++    <p class="text-muted mb-0">Platform-wide student account directory.</p>
++  </div>
++</div>
++
++<div class="card">
++  <div class="card-body">
++    <div class="filters-row mb-3">
++      <div class="filter-teacher">
++        <app-searchable-select
++          [options]="teacherOptions()"
++          [selectedValue]="selectedTeacherId"
++          allLabel="All teachers"
++          placeholder="Filter by teacher"
++          searchPlaceholder="Search teachers…"
++          (selectedValueChange)="onTeacherFilterChange($event)"
++        />
++      </div>
++      <div class="filter-search">
++        <input
++          type="search"
++          class="form-control"
++          placeholder="Search by student name or student code…"
++          [formControl]="searchControl"
++        />
++      </div>
++    </div>
++
++    @if (page(); as p) {
++      @if (p.data.length === 0) {
++        <app-empty-state
++          icon="🎓"
++          title="No student accounts found"
++          [message]="isFiltered ? 'No accounts match your search or teacher filter.' : 'There are no student accounts yet.'"
++        />
++      } @else {
++        <div class="table-responsive">
++          <table class="table align-middle">
++            <thead>
++              <tr>
++                <th>Student Name</th>
++                <th>Username</th>
++                <th>Account Code</th>
++                <th>Phone</th>
++                <th>Teachers</th>
++                <th class="text-end">Actions</th>
++              </tr>
++            </thead>
++            <tbody>
++              @for (account of p.data; track account.studentAccountId) {
++                <tr>
++                  <td class="fw-medium">{{ account.fullName }}</td>
++                  <td class="text-muted font-monospace">{{ account.userName }}</td>
++                  <td class="font-monospace">{{ account.accountCode }}</td>
++                  <td>{{ account.phoneNumber || '—' }}</td>
++                  <td class="teachers-cell">
++                    @if (account.teachers.length === 0) {
++                      <span class="text-muted">No teachers linked</span>
++                    } @else {
++                      <div class="teacher-stack">
++                        @for (
++                          t of (isExpanded(account.studentAccountId) ? account.teachers : account.teachers.slice(0, 2));
++                          track t.teacherId
++                        ) {
++                          <div class="teacher-chip">
++                            <span class="teacher-name">{{ t.teacherName }}</span>
++                            <span class="teacher-meta">
++                              Teacher Code: <span class="font-monospace">{{ t.teacherCode }}</span>
++                              · Student Code:
++                              <span class="font-monospace">{{ t.studentCode || '—' }}</span>
++                            </span>
++                          </div>
++                        }
++                      </div>
++                      @if (account.teachers.length > 2) {
++                        <button
++                          type="button"
++                          class="btn btn-link btn-sm p-0 mt-1"
++                          (click)="toggleExpanded(account.studentAccountId)"
++                        >
++                          {{ isExpanded(account.studentAccountId) ? 'Show less' : '+' + (account.teachers.length - 2) + ' more' }}
++                        </button>
++                      }
++                    }
++                  </td>
++                  <td class="text-end text-nowrap">
++                    <button
++                      type="button"
++                      class="btn btn-sm btn-outline-dark"
++                      (click)="openPasswordReset(account)"
++                    >
++                      Reset Password
++                    </button>
++                    <button
++                      type="button"
++                      class="btn btn-sm btn-outline-secondary ms-1"
++                      (click)="openLinkTeacher(account)"
++                    >
++                      Link Teacher
++                    </button>
++                  </td>
++                </tr>
++              }
++            </tbody>
++          </table>
++        </div>
++
++        <div class="d-flex justify-content-between align-items-center pt-2">
++          <small class="text-muted">
++            Showing {{ p.data.length }} of {{ p.totalCount }} student accounts
++          </small>
++          <div class="btn-group">
++            <button
++              type="button"
++              class="btn btn-outline-secondary btn-sm"
++              [disabled]="p.page <= 1"
++              (click)="goToPage(p.page - 1)"
++            >
++              Previous
++            </button>
++            <span class="btn btn-outline-secondary btn-sm disabled">
++              {{ p.page }} / {{ p.totalPages || 1 }}
++            </span>
++            <button
++              type="button"
++              class="btn btn-outline-secondary btn-sm"
++              [disabled]="p.page >= p.totalPages"
++              (click)="goToPage(p.page + 1)"
++            >
++              Next
++            </button>
++          </div>
++        </div>
++      }
++    }
++  </div>
++</div>
++
++<!-- ── Reset password modal ─────────────────────────────────────────────── -->
++@if (passwordResetTarget(); as target) {
++  <div class="pw-backdrop" (click)="closePasswordReset()"></div>
++  <div class="pw-modal" role="dialog" aria-modal="true">
++    <h5 class="pw-title">Reset password — {{ target.fullName }}</h5>
++
++    @if (passwordResetResolving()) {
++      <p class="pw-message">Preparing…</p>
++    } @else {
++      <p class="pw-message">
++        Sets a new password with no old-password check. {{ target.fullName }} will be
++        signed out of every active session immediately.
++      </p>
++
++      <form [formGroup]="passwordForm" (ngSubmit)="submitPasswordReset()" novalidate>
++        <div class="mb-3">
++          <label class="form-label" for="newPassword">New password</label>
++          <input
++            id="newPassword"
++            type="password"
++            class="form-control"
++            formControlName="newPassword"
++            autocomplete="new-password"
++            [class.is-invalid]="isInvalid('newPassword')"
++          />
++          @if (isInvalid('newPassword') && passwordForm.controls.newPassword.errors?.['required']) {
++            <div class="invalid-feedback d-block">New password is required.</div>
++          } @else if (isInvalid('newPassword')) {
++            <div class="invalid-feedback d-block">
++              Min 8 characters, with at least one uppercase, one lowercase, one number,
++              and one special character.
++            </div>
++          }
++        </div>
++
++        <div class="mb-2">
++          <label class="form-label" for="confirmPassword">Confirm password</label>
++          <input
++            id="confirmPassword"
++            type="password"
++            class="form-control"
++            formControlName="confirmPassword"
++            autocomplete="new-password"
++            [class.is-invalid]="isConfirmInvalid()"
++          />
++          @if (isConfirmInvalid() && passwordForm.controls.confirmPassword.errors?.['required']) {
++            <div class="invalid-feedback d-block">Please confirm the new password.</div>
++          } @else if (isConfirmInvalid()) {
++            <div class="invalid-feedback d-block">Passwords do not match.</div>
++          }
++        </div>
++
++        <div class="pw-actions">
++          <button
++            type="button"
++            class="btn btn-outline-secondary"
++            [disabled]="passwordSubmitting()"
++            (click)="closePasswordReset()"
++          >
++            Cancel
++          </button>
++          <button type="submit" class="btn btn-danger" [disabled]="passwordSubmitting()">
++            {{ passwordSubmitting() ? 'Resetting…' : 'Reset password' }}
++          </button>
++        </div>
++      </form>
++    }
++  </div>
++}
++
++<!-- ── Link Teacher modal — UI built per spec; submit disabled pending a backend
++     endpoint (see class doc: no SuperAdmin-reachable endpoint links a teacher
++     to a student account directly from a Teacher Code + Student Code pair). ── -->
++@if (linkTeacherTarget(); as target) {
++  <div class="pw-backdrop" (click)="closeLinkTeacher()"></div>
++  <div class="pw-modal" role="dialog" aria-modal="true">
++    <h5 class="pw-title">Link teacher — {{ target.fullName }}</h5>
++    <p class="pw-message">
++      Links the entered teacher to this student account. {{ target.fullName }} will gain
++      access to that teacher's content once linked.
++    </p>
++
++    <div class="alert alert-warning py-2 px-3 mb-3" role="alert">
++      This action isn't available yet — the backend doesn't currently expose an endpoint
++      for directly linking a teacher and a student account by code. Linking today only
++      happens when the student sends a request from the app and the teacher accepts it.
++    </div>
++
++    <form [formGroup]="linkTeacherForm" novalidate>
++      <div class="mb-3">
++        <label class="form-label" for="teacherCode">Teacher Code</label>
++        <input
++          id="teacherCode"
++          type="text"
++          class="form-control"
++          formControlName="teacherCode"
++          placeholder="e.g. 73491990"
++        />
++      </div>
++
++      <div class="mb-2">
++        <label class="form-label" for="studentCode">Student Code (optional)</label>
++        <input
++          id="studentCode"
++          type="text"
++          class="form-control"
++          formControlName="studentCode"
++          placeholder="e.g. A5"
++        />
++      </div>
++
++      <div class="pw-actions">
++        <button type="button" class="btn btn-outline-secondary" (click)="closeLinkTeacher()">
++          Close
++        </button>
++        <button type="button" class="btn btn-primary" disabled title="Not yet supported by the backend">
++          Link teacher
++        </button>
++      </div>
++    </form>
++  </div>
++}
+diff --git a/src/app/features/student-accounts/student-accounts-list/student-accounts-list.component.ts b/src/app/features/student-accounts/student-accounts-list/student-accounts-list.component.ts
+new file mode 100644
+index 0000000..47e05bd
+--- /dev/null
++++ b/src/app/features/student-accounts/student-accounts-list/student-accounts-list.component.ts
+@@ -0,0 +1,244 @@
++import { Component, inject, OnInit, signal } from '@angular/core';
++import {
++  AbstractControl,
++  FormBuilder,
++  FormControl,
++  ReactiveFormsModule,
++  ValidationErrors,
++  Validators,
++} from '@angular/forms';
++import { debounceTime, distinctUntilChanged } from 'rxjs';
++import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
++import {
++  SearchableSelectComponent,
++  SearchableSelectOption,
++} from '../../../shared/components/searchable-select/searchable-select.component';
++import { StudentAccountService } from '../../../core/services/student-account.service';
++import { TeacherService } from '../../../core/services/teacher.service';
++import { AuthService } from '../../../core/services/auth.service';
++import { ToastService } from '../../../core/services/toast.service';
++import { PaginatedResponse } from '../../../core/models/paginated-response.model';
++import { StudentAccountListItem } from '../../../core/models/student-account.model';
++import { TeacherLookupItem } from '../../../core/models/teacher.model';
++
++const DEFAULT_PAGE_SIZE = 10;
++
++/**
++ * Mirrors the backend `ForceChangePasswordDto` complexity rule: min 8 chars,
++ * at least one lowercase, one uppercase, one digit, one special character.
++ * Identical pattern to assistant-list/teacher-list — same backend endpoint.
++ */
++const PASSWORD_COMPLEXITY_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).+$/;
++
++/** Group-level validator: newPassword and confirmPassword must match. */
++function passwordsMatchValidator(group: AbstractControl): ValidationErrors | null {
++  const newPassword = group.get('newPassword')?.value;
++  const confirmPassword = group.get('confirmPassword')?.value;
++  return newPassword && confirmPassword && newPassword !== confirmPassword
++    ? { passwordMismatch: true }
++    : null;
++}
++
++/**
++ * Platform-wide Student Accounts directory (Admin Portal, SuperAdmin only).
++ * Distinct from the Students module (student-list.component.ts): this reads
++ * StudentUserController — the mobile-app login identity — not the
++ * per-teacher TeacherStudent roster. Search + teacher filter + pagination,
++ * mirroring AssistantListComponent's mechanics throughout.
++ *
++ * Reset Password: the list only returns StudentUser.Id (studentAccountId),
++ * but the shared force-change-password endpoint targets User.Id. We resolve
++ * userId via GET studentuser/by-code/{accountCode} when the modal opens,
++ * then submit exactly like Assistant/Teacher reset does.
++ *
++ * Link Teacher: built per spec (Teacher Code + Student Code inputs) but the
++ * submit is intentionally disabled. There is no SuperAdmin-reachable backend
++ * endpoint that creates a teacher-student link directly from a code pair —
++ * linking is request/approval-only (student requests, teacher accepts), and
++ * the admin bind/unbind endpoints only re-point an already-Active link onto
++ * a different module's roster record. Wire this up once a matching endpoint
++ * exists; see the inline note in the template.
++ */
++@Component({
++  selector: 'app-student-accounts-list',
++  standalone: true,
++  imports: [ReactiveFormsModule, EmptyStateComponent, SearchableSelectComponent],
++  templateUrl: 'student-accounts-list.component.html',
++  styleUrl: 'student-accounts-list.component.css',
++})
++export class StudentAccountsListComponent implements OnInit {
++  private readonly studentAccountService = inject(StudentAccountService);
++  private readonly teacherService = inject(TeacherService);
++  private readonly authService = inject(AuthService);
++  private readonly toast = inject(ToastService);
++  private readonly fb = inject(FormBuilder);
++
++  protected readonly searchControl = new FormControl<string>('', { nonNullable: true });
++  protected readonly page = signal<PaginatedResponse<StudentAccountListItem[]> | null>(null);
++  protected readonly teacherOptions = signal<SearchableSelectOption[]>([]);
++  protected selectedTeacherId: number | null = null;
++
++  private currentPage = 1;
++
++  // ── Teachers column — compact by default, expandable per row ─────────────
++  protected readonly expandedRows = signal<Set<number>>(new Set());
++
++  // ── Force-change-password modal ───────────────────────────────────────────
++  protected readonly passwordResetTarget = signal<StudentAccountListItem | null>(null);
++  protected readonly passwordResetUserId = signal<number | null>(null);
++  protected readonly passwordResetResolving = signal(false);
++  protected readonly passwordSubmitting = signal(false);
++  protected readonly passwordForm = this.fb.nonNullable.group(
++    {
++      newPassword: [
++        '',
++        [Validators.required, Validators.minLength(8), Validators.pattern(PASSWORD_COMPLEXITY_PATTERN)],
++      ],
++      confirmPassword: ['', [Validators.required]],
++    },
++    { validators: passwordsMatchValidator },
++  );
++
++  // ── Link Teacher modal (UI only — see class doc) ──────────────────────────
++  protected readonly linkTeacherTarget = signal<StudentAccountListItem | null>(null);
++  protected readonly linkTeacherForm = this.fb.nonNullable.group({
++    teacherCode: ['', [Validators.required]],
++    studentCode: [''],
++  });
++
++  ngOnInit(): void {
++    this.loadTeacherLookup();
++    this.load();
++
++    this.searchControl.valueChanges
++      .pipe(debounceTime(350), distinctUntilChanged())
++      .subscribe(() => {
++        this.currentPage = 1;
++        this.load();
++      });
++  }
++
++  protected onTeacherFilterChange(value: number | string | null): void {
++    this.selectedTeacherId = value == null ? null : Number(value);
++    this.currentPage = 1;
++    this.load();
++  }
++
++  protected goToPage(page: number): void {
++    this.currentPage = page;
++    this.load();
++  }
++
++  protected get isFiltered(): boolean {
++    return !!this.searchControl.value || this.selectedTeacherId != null;
++  }
++
++  // ── Teachers column ───────────────────────────────────────────────────────
++
++  protected isExpanded(id: number): boolean {
++    return this.expandedRows().has(id);
++  }
++
++  protected toggleExpanded(id: number): void {
++    const next = new Set(this.expandedRows());
++    if (next.has(id)) next.delete(id);
++    else next.add(id);
++    this.expandedRows.set(next);
++  }
++
++  // ── Force-change-password ────────────────────────────────────────────────
++
++  protected openPasswordReset(a: StudentAccountListItem): void {
++    this.passwordForm.reset();
++    this.passwordResetTarget.set(a);
++    this.passwordResetUserId.set(null);
++    this.passwordResetResolving.set(true);
++
++    this.studentAccountService.getUserIdByAccountCode(a.accountCode).subscribe({
++      next: (userId) => {
++        this.passwordResetUserId.set(userId);
++        this.passwordResetResolving.set(false);
++      },
++      error: () => {
++        // errorInterceptor already surfaces a toast for the failed lookup.
++        this.passwordResetResolving.set(false);
++        this.passwordResetTarget.set(null);
++      },
++    });
++  }
++
++  protected closePasswordReset(): void {
++    if (this.passwordSubmitting()) return;
++    this.passwordResetTarget.set(null);
++    this.passwordResetUserId.set(null);
++  }
++
++  protected isInvalid(control: 'newPassword' | 'confirmPassword'): boolean {
++    const c = this.passwordForm.controls[control];
++    return c.invalid && (c.touched || c.dirty);
++  }
++
++  protected isConfirmInvalid(): boolean {
++    const c = this.passwordForm.controls.confirmPassword;
++    const touchedOrDirty = c.touched || c.dirty;
++    return touchedOrDirty && (c.invalid || !!this.passwordForm.errors?.['passwordMismatch']);
++  }
++
++  protected submitPasswordReset(): void {
++    const target = this.passwordResetTarget();
++    const userId = this.passwordResetUserId();
++    if (!target || userId == null) return;
++
++    if (this.passwordForm.invalid) {
++      this.passwordForm.markAllAsTouched();
++      return;
++    }
++
++    const { newPassword, confirmPassword } = this.passwordForm.getRawValue();
++    this.passwordSubmitting.set(true);
++
++    this.authService.forceChangePassword({ userId, newPassword, confirmPassword }).subscribe({
++      next: () => {
++        this.passwordSubmitting.set(false);
++        this.toast.success(
++          `Password reset for ${target.fullName}. They've been signed out of all devices.`,
++        );
++        this.passwordResetTarget.set(null);
++        this.passwordResetUserId.set(null);
++      },
++      error: () => {
++        this.passwordSubmitting.set(false);
++      },
++    });
++  }
++
++  // ── Link Teacher (UI only) ────────────────────────────────────────────────
++
++  protected openLinkTeacher(a: StudentAccountListItem): void {
++    this.linkTeacherForm.reset();
++    this.linkTeacherTarget.set(a);
++  }
++
++  protected closeLinkTeacher(): void {
++    this.linkTeacherTarget.set(null);
++  }
++
++  // ── Data loading ─────────────────────────────────────────────────────────
++
++  private loadTeacherLookup(): void {
++    this.teacherService.getTeacherLookup().subscribe((teachers: TeacherLookupItem[]) => {
++      this.teacherOptions.set(teachers.map((t) => ({ value: t.id, label: t.fullName })));
++    });
++  }
++
++  private load(): void {
++    this.studentAccountService
++      .getStudentAccounts({
++        page: this.currentPage,
++        pageSize: DEFAULT_PAGE_SIZE,
++        search: this.searchControl.value,
++        teacherId: this.selectedTeacherId,
++      })
++      .subscribe((result) => this.page.set(result));
++  }
++}
+diff --git a/src/app/features/student-accounts/student-accounts.routes.ts b/src/app/features/student-accounts/student-accounts.routes.ts
+new file mode 100644
+index 0000000..3a356ac
+--- /dev/null
++++ b/src/app/features/student-accounts/student-accounts.routes.ts
+@@ -0,0 +1,17 @@
++import { Routes } from '@angular/router';
++
++/**
++ * Student Accounts area (StudentUserController — the mobile-app login
++ * identity). List only for now: no create/edit/detail screens exist for
++ * this module, unlike the separate Students area.
++ */
++export const STUDENT_ACCOUNTS_ROUTES: Routes = [
++  {
++    path: '',
++    loadComponent: () =>
++      import('./student-accounts-list/student-accounts-list.component').then(
++        (m) => m.StudentAccountsListComponent,
++      ),
++    data: { breadcrumb: 'Student Accounts' },
++  },
++];
+diff --git a/src/app/layout/sidebar/sidebar.component.ts b/src/app/layout/sidebar/sidebar.component.ts
+index 43d71fb..f925d5c 100644
+--- a/src/app/layout/sidebar/sidebar.component.ts
++++ b/src/app/layout/sidebar/sidebar.component.ts
+@@ -125,5 +125,6 @@ export class SidebarComponent {
+     { label: 'Teachers', icon: '🧑‍🏫', route: '/teachers' },
+     { label: 'Assistants', icon: '🧑‍💼', route: '/assistants' },
+     { label: 'Students', icon: '🎓', route: '/students' },
++    { label: 'Student Accounts', icon: '🪪', route: '/student-accounts' },
+   ];
+ }

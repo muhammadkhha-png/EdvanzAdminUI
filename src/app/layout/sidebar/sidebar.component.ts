@@ -125,5 +125,6 @@ export class SidebarComponent {
     { label: 'Teachers', icon: '🧑‍🏫', route: '/teachers' },
     { label: 'Assistants', icon: '🧑‍💼', route: '/assistants' },
     { label: 'Students', icon: '🎓', route: '/students' },
+    { label: 'Student Accounts', icon: '🪪', route: '/student-accounts' },
   ];
 }

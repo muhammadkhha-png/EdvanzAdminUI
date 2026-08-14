@@ -191,6 +191,11 @@ export class TeacherListComponent implements OnInit {
         pageSize: DEFAULT_PAGE_SIZE,
         search: this.searchControl.value,
       })
-      .subscribe((result) => this.page.set(result));
+      .subscribe((result) => {
+        this.page.set(result)
+        console.log(result);
+
+      }
+    );
   }
 }

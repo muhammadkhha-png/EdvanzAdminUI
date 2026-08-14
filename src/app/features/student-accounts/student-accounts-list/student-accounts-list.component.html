@@ -1,0 +1,271 @@
+<div class="page-header">
+  <div>
+    <h2 class="h4 mb-1">Student Accounts</h2>
+    <p class="text-muted mb-0">Platform-wide student account directory.</p>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <div class="filters-row mb-3">
+      <div class="filter-teacher">
+        <app-searchable-select
+          [options]="teacherOptions()"
+          [selectedValue]="selectedTeacherId"
+          allLabel="All teachers"
+          placeholder="Filter by teacher"
+          searchPlaceholder="Search teachers…"
+          (selectedValueChange)="onTeacherFilterChange($event)"
+        />
+      </div>
+      <div class="filter-search">
+        <input
+          type="search"
+          class="form-control"
+          placeholder="Search by student name or student code…"
+          [formControl]="searchControl"
+        />
+      </div>
+    </div>
+
+    @if (page(); as p) {
+      @if (p.data.length === 0) {
+        <app-empty-state
+          icon="🎓"
+          title="No student accounts found"
+          [message]="isFiltered ? 'No accounts match your search or teacher filter.' : 'There are no student accounts yet.'"
+        />
+      } @else {
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead>
+              <tr>
+                <th>Student Name</th>
+                <th>Username</th>
+                <th>Account Code</th>
+                <th>Phone</th>
+                <th>Teachers</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (account of p.data; track account.studentAccountId) {
+                <tr>
+                  <td class="fw-medium">{{ account.fullName }}</td>
+                  <td class="text-muted font-monospace">{{ account.userName }}</td>
+                  <td class="font-monospace">{{ account.accountCode }}</td>
+                  <td>{{ account.phoneNumber || '—' }}</td>
+                  <td class="teachers-cell">
+                    @if (account.teachers.length === 0) {
+                      <span class="text-muted">No teachers linked</span>
+                    } @else {
+                      <div class="teacher-stack">
+                        @for (
+                          t of (isExpanded(account.studentAccountId) ? account.teachers : account.teachers.slice(0, 2));
+                          track t.teacherId
+                        ) {
+                          <div class="teacher-chip">
+                            <span class="teacher-name">{{ t.teacherName }}</span>
+                            <span class="teacher-meta">
+                              Teacher Code: <span class="font-monospace">{{ t.teacherCode }}</span>
+                              · Student Code:
+                              <span class="font-monospace">{{ t.studentCode || '—' }}</span>
+                            </span>
+                          </div>
+                        }
+                      </div>
+                      @if (account.teachers.length > 2) {
+                        <button
+                          type="button"
+                          class="btn btn-link btn-sm p-0 mt-1"
+                          (click)="toggleExpanded(account.studentAccountId)"
+                        >
+                          {{ isExpanded(account.studentAccountId) ? 'Show less' : '+' + (account.teachers.length - 2) + ' more' }}
+                        </button>
+                      }
+                    }
+                  </td>
+                  <td class="text-end text-nowrap">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-dark"
+                      (click)="openPasswordReset(account)"
+                    >
+                      Reset Password
+                    </button>
+                    <!-- <button
+                      type="button"
+                      class="btn btn-sm btn-outline-secondary ms-1"
+                      (click)="openLinkTeacher(account)"
+                    >
+                      Link Teacher
+                    </button> -->
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center pt-2">
+          <small class="text-muted">
+            Showing {{ p.data.length }} of {{ p.totalCount }} student accounts
+          </small>
+          <div class="btn-group">
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm"
+              [disabled]="p.page <= 1"
+              (click)="goToPage(p.page - 1)"
+            >
+              Previous
+            </button>
+            <span class="btn btn-outline-secondary btn-sm disabled">
+              {{ p.page }} / {{ p.totalPages || 1 }}
+            </span>
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm"
+              [disabled]="p.page >= p.totalPages"
+              (click)="goToPage(p.page + 1)"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      }
+    }
+  </div>
+</div>
+
+<!-- ── Reset password modal ─────────────────────────────────────────────── -->
+@if (passwordResetTarget(); as target) {
+  <div class="pw-backdrop" (click)="closePasswordReset()"></div>
+  <div class="pw-modal" role="dialog" aria-modal="true">
+    <h5 class="pw-title">Reset password — {{ target.fullName }}</h5>
+
+    @if (passwordResetResolving()) {
+      <p class="pw-message">Preparing…</p>
+    } @else {
+      <p class="pw-message">
+        Sets a new password with no old-password check. {{ target.fullName }} will be
+        signed out of every active session immediately.
+      </p>
+
+      <form [formGroup]="passwordForm" (ngSubmit)="submitPasswordReset()" novalidate>
+        <div class="mb-3">
+          <label class="form-label" for="newPassword">New password</label>
+          <input
+            id="newPassword"
+            type="password"
+            class="form-control"
+            formControlName="newPassword"
+            autocomplete="new-password"
+            [class.is-invalid]="isInvalid('newPassword')"
+          />
+          @if (isInvalid('newPassword') && passwordForm.controls.newPassword.errors?.['required']) {
+            <div class="invalid-feedback d-block">New password is required.</div>
+          } @else if (isInvalid('newPassword')) {
+            <div class="invalid-feedback d-block">
+              Min 8 characters, with at least one uppercase, one lowercase, one number,
+              and one special character.
+            </div>
+          }
+        </div>
+
+        <div class="mb-2">
+          <label class="form-label" for="confirmPassword">Confirm password</label>
+          <input
+            id="confirmPassword"
+            type="password"
+            class="form-control"
+            formControlName="confirmPassword"
+            autocomplete="new-password"
+            [class.is-invalid]="isConfirmInvalid()"
+          />
+          @if (isConfirmInvalid() && passwordForm.controls.confirmPassword.errors?.['required']) {
+            <div class="invalid-feedback d-block">Please confirm the new password.</div>
+          } @else if (isConfirmInvalid()) {
+            <div class="invalid-feedback d-block">Passwords do not match.</div>
+          }
+        </div>
+
+        <div class="pw-actions">
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            [disabled]="passwordSubmitting()"
+            (click)="closePasswordReset()"
+          >
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-danger" [disabled]="passwordSubmitting()">
+            {{ passwordSubmitting() ? 'Resetting…' : 'Reset password' }}
+          </button>
+        </div>
+      </form>
+    }
+  </div>
+}
+
+<!-- ── Link Teacher modal ───────────────────────────────────────────────── -->
+@if (linkTeacherTarget(); as target) {
+  <div class="pw-backdrop" (click)="closeLinkTeacher()"></div>
+  <div class="pw-modal" role="dialog" aria-modal="true">
+    <h5 class="pw-title">Link teacher — {{ target.fullName }}</h5>
+    <p class="pw-message">
+      Links {{ target.fullName }} to the roster record the student code below resolves to,
+      under the teacher identified by the teacher code. The student must have already sent
+      a link request to this teacher from the app and had it accepted — this action attaches
+      the accepted connection to the right roster record, it does not create the connection.
+    </p>
+
+    <form [formGroup]="linkTeacherForm" (ngSubmit)="submitLinkTeacher()" novalidate>
+      <div class="mb-3">
+        <label class="form-label" for="teacherCode">Teacher Code</label>
+        <input
+          id="teacherCode"
+          type="text"
+          class="form-control"
+          formControlName="teacherCode"
+          placeholder="e.g. 73491990"
+          [class.is-invalid]="isLinkTeacherInvalid('teacherCode')"
+        />
+        @if (isLinkTeacherInvalid('teacherCode')) {
+          <div class="invalid-feedback d-block">Teacher code is required.</div>
+        }
+      </div>
+
+      <div class="mb-2">
+        <label class="form-label" for="studentCode">Student Code</label>
+        <input
+          id="studentCode"
+          type="text"
+          class="form-control"
+          formControlName="studentCode"
+          placeholder="e.g. A5"
+          [class.is-invalid]="isLinkTeacherInvalid('studentCode')"
+        />
+        @if (isLinkTeacherInvalid('studentCode')) {
+          <div class="invalid-feedback d-block">
+            Student code is required — the code this teacher assigned the student in their roster.
+          </div>
+        }
+      </div>
+
+      <div class="pw-actions">
+        <button
+          type="button"
+          class="btn btn-outline-secondary"
+          [disabled]="linkTeacherSubmitting()"
+          (click)="closeLinkTeacher()"
+        >
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-primary" [disabled]="linkTeacherSubmitting()">
+          {{ linkTeacherSubmitting() ? 'Linking…' : 'Link teacher' }}
+        </button>
+      </div>
+    </form>
+  </div>
+}
