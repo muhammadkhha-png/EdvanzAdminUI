@@ -39,6 +39,7 @@
                 <th>Subscription</th>
                 <th>Type</th>
                 <th>Status</th>
+                <th>Last login</th>
                 <th class="text-end">Actions</th>
               </tr>
             </thead>
@@ -77,6 +78,13 @@
                     >
                       {{ teacher.accountStatus }}
                     </span>
+                  </td>
+                  <td class="text-nowrap">
+                    @if (teacher.lastLoginAt) {
+                      <span [title]="formatDateTime(teacher.lastLoginAt)">{{ timeAgo(teacher.lastLoginAt) }}</span>
+                    } @else {
+                      <span class="text-muted">Never</span>
+                    }
                   </td>
                   <td class="text-end text-nowrap">
                     <a

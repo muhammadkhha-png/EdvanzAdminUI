@@ -45,6 +45,7 @@
                 <th>Username</th>
                 <th>Account Code</th>
                 <th>Phone</th>
+                <th>Last login</th>
                 <th>Teachers</th>
                 <th class="text-end">Actions</th>
               </tr>
@@ -56,6 +57,13 @@
                   <td class="text-muted font-monospace">{{ account.userName }}</td>
                   <td class="font-monospace">{{ account.accountCode }}</td>
                   <td>{{ account.phoneNumber || '—' }}</td>
+                  <td class="text-nowrap">
+                    @if (account.lastLoginAt) {
+                      <span [title]="formatDateTime(account.lastLoginAt)">{{ timeAgo(account.lastLoginAt) }}</span>
+                    } @else {
+                      <span class="text-muted">Never</span>
+                    }
+                  </td>
                   <td class="teachers-cell">
                     @if (account.teachers.length === 0) {
                       <span class="text-muted">No teachers linked</span>

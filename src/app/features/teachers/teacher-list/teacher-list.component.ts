@@ -14,6 +14,7 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog/
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 import { InfiniteScrollDirective } from '../../../shared/directives/infinite-scroll.directive';
 import { InfiniteListStore } from '../../../shared/utils/infinite-list-store';
+import { formatDateTime, timeAgo } from '../../../shared/utils/time-format';
 import { AuthService } from '../../../core/services/auth.service';
 import { TeacherService } from '../../../core/services/teacher.service';
 import { ToastService } from '../../../core/services/toast.service';
@@ -62,6 +63,10 @@ export class TeacherListComponent implements OnInit {
   protected readonly searchControl = new FormControl<string>('', {
     nonNullable: true,
   });
+
+  /** Timestamp formatters exposed to the template (last-login column). */
+  protected readonly timeAgo = timeAgo;
+  protected readonly formatDateTime = formatDateTime;
 
   /** Infinite-scroll list state: accumulates pages, appends on scroll. */
   protected readonly store = new InfiniteListStore<TeacherListItem>(

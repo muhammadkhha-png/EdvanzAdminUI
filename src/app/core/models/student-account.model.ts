@@ -23,6 +23,8 @@ export interface StudentAccountListItem {
   userName: string;
   accountCode: string;
   phoneNumber?: string;
+  /** Most recent successful login (ISO UTC), or absent/null if never logged in. */
+  lastLoginAt?: string | null;
   /** Empty when the account has never linked to a teacher, or all links are non-Active. */
   teachers: StudentAccountTeacherLink[];
 }

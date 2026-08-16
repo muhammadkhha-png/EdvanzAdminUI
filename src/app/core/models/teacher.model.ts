@@ -20,6 +20,8 @@ export interface TeacherListItem {
   planType?: string;
   subscriptionEndDate?: string;
   createdAt: string;
+  /** Most recent successful login (ISO UTC), or absent/null if never logged in. */
+  lastLoginAt?: string | null;
 }
 
 // ── Teacher detail (GET /api/teacher/{id}/profile) ───────────────────────────

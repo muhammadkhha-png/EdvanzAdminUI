@@ -15,6 +15,7 @@ import {
 } from '../../../shared/components/searchable-select/searchable-select.component';
 import { InfiniteScrollDirective } from '../../../shared/directives/infinite-scroll.directive';
 import { InfiniteListStore } from '../../../shared/utils/infinite-list-store';
+import { formatDateTime, timeAgo } from '../../../shared/utils/time-format';
 import { StudentAccountService } from '../../../core/services/student-account.service';
 import { TeacherService } from '../../../core/services/teacher.service';
 import { AuthService } from '../../../core/services/auth.service';
@@ -88,6 +89,10 @@ export class StudentAccountsListComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
 
   protected readonly searchControl = new FormControl<string>('', { nonNullable: true });
+
+  /** Timestamp formatters exposed to the template (last-login column). */
+  protected readonly timeAgo = timeAgo;
+  protected readonly formatDateTime = formatDateTime;
   protected readonly teacherOptions = signal<SearchableSelectOption[]>([]);
   protected selectedTeacherId: number | null = null;
 
