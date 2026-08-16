@@ -9,6 +9,10 @@ export interface TeacherListItem {
   teacherCode: string;
   phoneNumber?: string;
   studentCapacity: number;
+  /** Created/roster students under this teacher (active TeacherStudents). */
+  studentCount?: number;
+  /** Students with an active account link (connected) to this teacher. */
+  linkedStudentCount?: number;
   accountStatus: string;
   isConfigurationCompleted: boolean;
   subscriptionStatus?: string;

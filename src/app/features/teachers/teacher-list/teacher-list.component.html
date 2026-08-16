@@ -33,6 +33,8 @@
                 <th>Username</th>
                 <th>Code</th>
                 <th>Phone</th>
+                <th class="text-end">Students</th>
+                <th class="text-end">Linked</th>
                 <th>Subscription</th>
                 <th>Type</th>
                 <th>Status</th>
@@ -46,6 +48,8 @@
                   <td class="text-muted">{{ teacher.username }}</td>
                   <td class="text-muted font-monospace">{{ teacher.teacherCode }}</td>
                   <td>{{ teacher.phoneNumber ?? '—' }}</td>
+                  <td class="text-end">{{ teacher.studentCount ?? 0 }}</td>
+                  <td class="text-end">{{ teacher.linkedStudentCount ?? 0 }}</td>
                   <td>
                     <app-subscription-status-badge
                       [status]="teacher.subscriptionStatus ?? ''"
