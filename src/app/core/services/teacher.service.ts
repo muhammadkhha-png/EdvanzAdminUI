@@ -2,6 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { map, Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { skipGlobalLoading } from '../interceptors/loading-context';
 import { ApiResult } from '../models/api-result.model';
 import { PaginatedResponse } from '../models/paginated-response.model';
 import {
@@ -34,7 +35,10 @@ export class TeacherService {
     if (query.subscriptionStatus) params = params.set('subscriptionStatus', query.subscriptionStatus);
 
     return this.http
-      .get<ApiResult<PaginatedResponse<TeacherListItem[]>>>(`${this.base}/teacher/list`, { params })
+      .get<ApiResult<PaginatedResponse<TeacherListItem[]>>>(`${this.base}/teacher/list`, {
+        params,
+        context: skipGlobalLoading(),
+      })
       .pipe(map((r) => r.data));
   }
 

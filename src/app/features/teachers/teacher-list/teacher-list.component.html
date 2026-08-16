@@ -17,14 +17,15 @@
       />
     </div>
 
-    @if (page(); as p) {
-      @if (p.data.length === 0) {
-        <app-empty-state
-          icon="🧑‍🏫"
-          title="No teachers found"
-          message="Try a different search, or add a new teacher."
-        />
-      } @else {
+    @if (!store.initialized() && store.loading()) {
+      <div class="list-footer"><span class="spinner-sm"></span> Loading…</div>
+    } @else if (store.isEmpty()) {
+      <app-empty-state
+        icon="🧑‍🏫"
+        title="No teachers found"
+        message="Try a different search, or add a new teacher."
+      />
+    } @else {
         <div class="table-responsive">
           <table class="table align-middle">
             <thead>
@@ -42,7 +43,7 @@
               </tr>
             </thead>
             <tbody>
-              @for (teacher of p.data; track teacher.id) {
+              @for (teacher of store.items(); track teacher.id) {
                 <tr>
                   <td class="fw-medium">{{ teacher.fullName }}</td>
                   <td class="text-muted">{{ teacher.username }}</td>
@@ -113,33 +114,21 @@
           </table>
         </div>
 
-        <div class="d-flex justify-content-between align-items-center pt-2">
-          <small class="text-muted">
-            Showing {{ p.data.length }} of {{ p.totalCount }} teachers
-          </small>
-          <div class="btn-group">
-            <button
-              type="button"
-              class="btn btn-outline-secondary btn-sm"
-              [disabled]="p.page <= 1"
-              (click)="goToPage(p.page - 1)"
-            >
-              Previous
-            </button>
-            <span class="btn btn-outline-secondary btn-sm disabled">
-              {{ p.page }} / {{ p.totalPages || 1 }}
-            </span>
-            <button
-              type="button"
-              class="btn btn-outline-secondary btn-sm"
-              [disabled]="p.page >= p.totalPages"
-              (click)="goToPage(p.page + 1)"
-            >
-              Next
-            </button>
-          </div>
+        <div class="list-count">
+          Showing {{ store.items().length }} of {{ store.totalCount() }} teachers
         </div>
-      }
+
+        @if (store.hasMore()) {
+          <div
+            class="infinite-scroll-sentinel"
+            appInfiniteScroll
+            [appInfiniteScrollDisabled]="store.loading()"
+            (scrolled)="store.loadMore()"
+          ></div>
+        }
+        @if (store.loadingMore()) {
+          <div class="list-footer"><span class="spinner-sm"></span> Loading more…</div>
+        }
     }
   </div>
 </div>

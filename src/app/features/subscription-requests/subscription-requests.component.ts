@@ -1,12 +1,13 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
-import { PaginatedResponse } from '../../core/models/paginated-response.model';
 import { AdminSubscriptionRequestQueueItem } from '../../core/models/subscription.model';
 import { SubscriptionService } from '../../core/services/subscription.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog/confirm-dialog.service';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
+import { InfiniteScrollDirective } from '../../shared/directives/infinite-scroll.directive';
+import { InfiniteListStore } from '../../shared/utils/infinite-list-store';
 
 const DEFAULT_PAGE_SIZE = 20;
 const REJECTION_REASON_MAX = 500;
@@ -24,7 +25,13 @@ const REJECTION_REASON_MAX = 500;
 @Component({
   selector: 'app-subscription-requests',
   standalone: true,
-  imports: [ReactiveFormsModule, DatePipe, DecimalPipe, EmptyStateComponent],
+  imports: [
+    ReactiveFormsModule,
+    DatePipe,
+    DecimalPipe,
+    EmptyStateComponent,
+    InfiniteScrollDirective,
+  ],
   templateUrl: 'subscription-requests.component.html',
   styleUrl: 'subscription-requests.component.css',
 })
@@ -34,9 +41,13 @@ export class SubscriptionRequestsComponent implements OnInit {
   private readonly toast = inject(ToastService);
 
   protected readonly reasonMax = REJECTION_REASON_MAX;
-  protected readonly page =
-    signal<PaginatedResponse<AdminSubscriptionRequestQueueItem[]> | null>(null);
-  private currentPage = 1;
+
+  /** Infinite-scroll list state: accumulates pages, appends on scroll. */
+  protected readonly store = new InfiniteListStore<AdminSubscriptionRequestQueueItem>(
+    DEFAULT_PAGE_SIZE,
+    (page, pageSize) =>
+      this.subscriptionService.getSubscriptionRequests(page, pageSize),
+  );
 
   // ── Reject modal (prompts for the required rejection reason) ────────────────
   protected readonly rejectTarget =
@@ -51,12 +62,7 @@ export class SubscriptionRequestsComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    this.load();
-  }
-
-  protected goToPage(page: number): void {
-    this.currentPage = page;
-    this.load();
+    this.store.reset();
   }
 
   protected async approve(
@@ -78,7 +84,7 @@ export class SubscriptionRequestsComponent implements OnInit {
       this.toast.success(
         `Subscription activated for ${item.teacherName}.`,
       );
-      this.load();
+      this.store.reset();
     });
   }
 
@@ -116,7 +122,7 @@ export class SubscriptionRequestsComponent implements OnInit {
           this.toast.success(
             `Request from ${target.teacherName} rejected.`,
           );
-          this.load();
+          this.store.reset();
         },
         error: () => {
           // HTTP error already toasted by the global errorInterceptor
@@ -127,9 +133,4 @@ export class SubscriptionRequestsComponent implements OnInit {
       });
   }
 
-  private load(): void {
-    this.subscriptionService
-      .getSubscriptionRequests(this.currentPage, DEFAULT_PAGE_SIZE)
-      .subscribe((result) => this.page.set(result));
-  }
 }

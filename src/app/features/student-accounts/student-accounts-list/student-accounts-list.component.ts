@@ -13,11 +13,12 @@ import {
   SearchableSelectComponent,
   SearchableSelectOption,
 } from '../../../shared/components/searchable-select/searchable-select.component';
+import { InfiniteScrollDirective } from '../../../shared/directives/infinite-scroll.directive';
+import { InfiniteListStore } from '../../../shared/utils/infinite-list-store';
 import { StudentAccountService } from '../../../core/services/student-account.service';
 import { TeacherService } from '../../../core/services/teacher.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
-import { PaginatedResponse } from '../../../core/models/paginated-response.model';
 import { StudentAccountListItem } from '../../../core/models/student-account.model';
 import { TeacherLookupItem } from '../../../core/models/teacher.model';
 
@@ -70,7 +71,12 @@ function passwordsMatchValidator(group: AbstractControl): ValidationErrors | nul
 @Component({
   selector: 'app-student-accounts-list',
   standalone: true,
-  imports: [ReactiveFormsModule, EmptyStateComponent, SearchableSelectComponent],
+  imports: [
+    ReactiveFormsModule,
+    EmptyStateComponent,
+    SearchableSelectComponent,
+    InfiniteScrollDirective,
+  ],
   templateUrl: 'student-accounts-list.component.html',
   styleUrl: 'student-accounts-list.component.css',
 })
@@ -82,11 +88,20 @@ export class StudentAccountsListComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
 
   protected readonly searchControl = new FormControl<string>('', { nonNullable: true });
-  protected readonly page = signal<PaginatedResponse<StudentAccountListItem[]> | null>(null);
   protected readonly teacherOptions = signal<SearchableSelectOption[]>([]);
   protected selectedTeacherId: number | null = null;
 
-  private currentPage = 1;
+  /** Infinite-scroll list state: accumulates pages, appends on scroll. */
+  protected readonly store = new InfiniteListStore<StudentAccountListItem>(
+    DEFAULT_PAGE_SIZE,
+    (page, pageSize) =>
+      this.studentAccountService.getStudentAccounts({
+        page,
+        pageSize,
+        search: this.searchControl.value,
+        teacherId: this.selectedTeacherId,
+      }),
+  );
 
   // ── Teachers column — compact by default, expandable per row ─────────────
   protected readonly expandedRows = signal<Set<number>>(new Set());
@@ -117,25 +132,16 @@ export class StudentAccountsListComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadTeacherLookup();
-    this.load();
+    this.store.reset();
 
     this.searchControl.valueChanges
       .pipe(debounceTime(350), distinctUntilChanged())
-      .subscribe(() => {
-        this.currentPage = 1;
-        this.load();
-      });
+      .subscribe(() => this.store.reset());
   }
 
   protected onTeacherFilterChange(value: number | string | null): void {
     this.selectedTeacherId = value == null ? null : Number(value);
-    this.currentPage = 1;
-    this.load();
-  }
-
-  protected goToPage(page: number): void {
-    this.currentPage = page;
-    this.load();
+    this.store.reset();
   }
 
   protected get isFiltered(): boolean {
@@ -286,7 +292,7 @@ export class StudentAccountsListComponent implements OnInit {
                 this.linkTeacherSubmitting.set(false);
                 this.toast.success(`Linked ${target.fullName} to ${teacher.fullName}.`);
                 this.linkTeacherTarget.set(null);
-                this.load();
+                this.store.reset();
               },
               error: () => this.linkTeacherSubmitting.set(false),
             });
@@ -306,14 +312,4 @@ export class StudentAccountsListComponent implements OnInit {
     });
   }
 
-  private load(): void {
-    this.studentAccountService
-      .getStudentAccounts({
-        page: this.currentPage,
-        pageSize: DEFAULT_PAGE_SIZE,
-        search: this.searchControl.value,
-        teacherId: this.selectedTeacherId,
-      })
-      .subscribe((result) => this.page.set(result));
-  }
 }

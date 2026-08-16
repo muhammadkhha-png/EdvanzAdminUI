@@ -9,10 +9,11 @@ import {
 } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
-import { PaginatedResponse } from '../../../core/models/paginated-response.model';
 import { TeacherListItem } from '../../../core/models/teacher.model';
 import { ConfirmDialogService } from '../../../shared/components/confirm-dialog/confirm-dialog.service';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
+import { InfiniteScrollDirective } from '../../../shared/directives/infinite-scroll.directive';
+import { InfiniteListStore } from '../../../shared/utils/infinite-list-store';
 import { AuthService } from '../../../core/services/auth.service';
 import { TeacherService } from '../../../core/services/teacher.service';
 import { ToastService } from '../../../core/services/toast.service';
@@ -46,6 +47,7 @@ function passwordsMatchValidator(group: AbstractControl): ValidationErrors | nul
     RouterLink,
     EmptyStateComponent,
     SubscriptionStatusBadgeComponent,
+    InfiniteScrollDirective,
   ],
   templateUrl: 'teacher-list.component.html',
   styleUrl: 'teacher-list.component.css',
@@ -60,8 +62,17 @@ export class TeacherListComponent implements OnInit {
   protected readonly searchControl = new FormControl<string>('', {
     nonNullable: true,
   });
-  protected readonly page = signal<PaginatedResponse<TeacherListItem[]> | null>(null);
-  private currentPage = 1;
+
+  /** Infinite-scroll list state: accumulates pages, appends on scroll. */
+  protected readonly store = new InfiniteListStore<TeacherListItem>(
+    DEFAULT_PAGE_SIZE,
+    (page, pageSize) =>
+      this.teacherService.getTeachers({
+        page,
+        pageSize,
+        search: this.searchControl.value,
+      }),
+  );
 
   // ── Force-change-password modal (SuperAdmin only surface; this whole portal is SuperAdmin) ──
   protected readonly passwordResetTarget = signal<TeacherListItem | null>(null);
@@ -78,18 +89,10 @@ export class TeacherListComponent implements OnInit {
   );
 
   ngOnInit(): void {
-    this.load();
+    this.store.reset();
     this.searchControl.valueChanges
       .pipe(debounceTime(350), distinctUntilChanged())
-      .subscribe(() => {
-        this.currentPage = 1;
-        this.load();
-      });
-  }
-
-  protected goToPage(page: number): void {
-    this.currentPage = page;
-    this.load();
+      .subscribe(() => this.store.reset());
   }
 
   protected async deactivate(t: TeacherListItem): Promise<void> {
@@ -102,14 +105,14 @@ export class TeacherListComponent implements OnInit {
     if (!ok) return;
     this.teacherService.deactivateTeacher(t.id).subscribe(() => {
       this.toast.success('Teacher deactivated.');
-      this.load();
+      this.store.reset();
     });
   }
 
   protected activate(t: TeacherListItem): void {
     this.teacherService.activateTeacher(t.id).subscribe(() => {
       this.toast.success('Teacher activated.');
-      this.load();
+      this.store.reset();
     });
   }
 
@@ -123,7 +126,7 @@ export class TeacherListComponent implements OnInit {
     if (!ok) return;
     this.teacherService.softDeleteTeacher(t.id).subscribe(() => {
       this.toast.success('Teacher deleted.');
-      this.load();
+      this.store.reset();
     });
   }
 
@@ -182,20 +185,5 @@ export class TeacherListComponent implements OnInit {
           this.passwordSubmitting.set(false);
         },
       });
-  }
-
-  private load(): void {
-    this.teacherService
-      .getTeachers({
-        page: this.currentPage,
-        pageSize: DEFAULT_PAGE_SIZE,
-        search: this.searchControl.value,
-      })
-      .subscribe((result) => {
-        this.page.set(result)
-        console.log(result);
-
-      }
-    );
   }
 }

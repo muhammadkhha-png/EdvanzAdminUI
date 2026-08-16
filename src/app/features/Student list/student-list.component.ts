@@ -8,10 +8,11 @@ import {
   SearchableSelectOption,
 } from '../../shared/components/searchable-select/searchable-select.component';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog/confirm-dialog.service';
+import { InfiniteScrollDirective } from '../../shared/directives/infinite-scroll.directive';
+import { InfiniteListStore } from '../../shared/utils/infinite-list-store';
 import { StudentService } from '../../core/services/student.service';
 import { TeacherService } from '../../core/services/teacher.service';
 import { ToastService } from '../../core/services/toast.service';
-import { PaginatedResponse } from '../../core/models/paginated-response.model';
 import { StudentAdminListItem, UnboundLinkItem } from '../../core/models/student.model';
 import { TeacherLookupItem } from '../../core/models/teacher.model';
 
@@ -32,7 +33,13 @@ type MissingFilter = 'missingStudentPhone' | 'missingParentPhone' | 'missingSess
 @Component({
   selector: 'app-student-list',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, EmptyStateComponent, SearchableSelectComponent],
+  imports: [
+    ReactiveFormsModule,
+    RouterLink,
+    EmptyStateComponent,
+    SearchableSelectComponent,
+    InfiniteScrollDirective,
+  ],
   templateUrl: 'student-list.component.html',
   styleUrl: 'student-list.component.css',
 })
@@ -43,9 +50,23 @@ export class StudentListComponent implements OnInit {
   private readonly confirmDialog = inject(ConfirmDialogService);
 
   protected readonly searchControl = new FormControl<string>('', { nonNullable: true });
-  protected readonly page = signal<PaginatedResponse<StudentAdminListItem[]> | null>(null);
   protected readonly teacherOptions = signal<SearchableSelectOption[]>([]);
   protected selectedTeacherId: number | null = null;
+
+  /** Infinite-scroll list state: accumulates pages, appends on scroll. */
+  protected readonly store = new InfiniteListStore<StudentAdminListItem>(
+    DEFAULT_PAGE_SIZE,
+    (page, pageSize) =>
+      this.studentService.getAllStudents({
+        page,
+        pageSize,
+        search: this.searchControl.value,
+        teacherId: this.selectedTeacherId,
+        missingStudentPhone: this.missingStudentPhone() || undefined,
+        missingParentPhone: this.missingParentPhone() || undefined,
+        missingSession: this.missingSession() || undefined,
+      }),
+  );
 
   // ── "Missing field" filter chips — REQ-STU-036 equivalents, admin-wide ──
   protected readonly missingStudentPhone = signal(false);
@@ -59,24 +80,18 @@ export class StudentListComponent implements OnInit {
   protected readonly pickerTarget = signal<StudentAdminListItem | null>(null);
   protected readonly linkActionBusyId = signal<number | null>(null);
 
-  private currentPage = 1;
-
   ngOnInit(): void {
     this.loadTeacherLookup();
-    this.load();
+    this.store.reset();
 
     this.searchControl.valueChanges
       .pipe(debounceTime(350), distinctUntilChanged())
-      .subscribe(() => {
-        this.currentPage = 1;
-        this.load();
-      });
+      .subscribe(() => this.store.reset());
   }
 
   protected onTeacherFilterChange(value: number | string | null): void {
     this.selectedTeacherId = value == null ? null : Number(value);
-    this.currentPage = 1;
-    this.load();
+    this.store.reset();
   }
 
   protected toggleMissingFilter(filter: MissingFilter): void {
@@ -87,13 +102,7 @@ export class StudentListComponent implements OnInit {
           ? this.missingParentPhone
           : this.missingSession;
     target.update((v) => !v);
-    this.currentPage = 1;
-    this.load();
-  }
-
-  protected goToPage(page: number): void {
-    this.currentPage = page;
-    this.load();
+    this.store.reset();
   }
 
   // ── Mobile-account Link / Unlink ─────────────────────────────────────────
@@ -115,7 +124,7 @@ export class StudentListComponent implements OnInit {
       next: () => {
         this.toast.success('Student unlinked.');
         this.linkActionBusyId.set(null);
-        this.load();
+        this.store.reset();
       },
       error: () => this.linkActionBusyId.set(null),
     });
@@ -153,7 +162,7 @@ export class StudentListComponent implements OnInit {
         this.toast.success(`Linked to ${option.studentFullName}.`);
         this.linkActionBusyId.set(null);
         this.closePicker();
-        this.load();
+        this.store.reset();
       },
       error: () => this.linkActionBusyId.set(null),
     });
@@ -167,17 +176,4 @@ export class StudentListComponent implements OnInit {
     });
   }
 
-  private load(): void {
-    this.studentService
-      .getAllStudents({
-        page: this.currentPage,
-        pageSize: DEFAULT_PAGE_SIZE,
-        search: this.searchControl.value,
-        teacherId: this.selectedTeacherId,
-        missingStudentPhone: this.missingStudentPhone() || undefined,
-        missingParentPhone: this.missingParentPhone() || undefined,
-        missingSession: this.missingSession() || undefined,
-      })
-      .subscribe((result) => this.page.set(result));
-  }
 }

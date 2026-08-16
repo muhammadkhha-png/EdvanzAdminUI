@@ -2,6 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { map, Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { skipGlobalLoading } from '../interceptors/loading-context';
 import { ApiResult } from '../models/api-result.model';
 import { PaginatedResponse } from '../models/paginated-response.model';
 import {
@@ -36,7 +37,7 @@ export class StudentAccountService {
     return this.http
       .get<ApiResult<PaginatedResponse<StudentAccountListItem[]>>>(
         `${this.base}/studentuser/list`,
-        { params },
+        { params, context: skipGlobalLoading() },
       )
       .pipe(map((r) => r.data));
   }

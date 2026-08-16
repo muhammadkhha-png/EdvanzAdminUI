@@ -44,3 +44,37 @@ body {
     font-size: 0.9rem;
   }
 }
+
+/* ── Infinite-scroll list footer (shared by every admin list page) ───────── */
+/* Zero-height sentinel the InfiniteScrollDirective observes at the list end. */
+.infinite-scroll-sentinel {
+  height: 1px;
+  width: 100%;
+}
+.list-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.9rem 0;
+  color: var(--edvanz-muted, #6b7280);
+  font-size: 0.875rem;
+}
+.list-footer .spinner-sm {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--edvanz-border, #dfe3ea);
+  border-top-color: var(--edvanz-primary, #2563eb);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+.list-count {
+  padding-top: 0.5rem;
+  color: var(--edvanz-muted, #6b7280);
+  font-size: 0.8125rem;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

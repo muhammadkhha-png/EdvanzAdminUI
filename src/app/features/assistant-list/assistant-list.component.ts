@@ -11,12 +11,13 @@ import { RouterLink } from '@angular/router';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { SearchableSelectComponent, SearchableSelectOption } from '../../shared/components/searchable-select/searchable-select.component';
+import { InfiniteScrollDirective } from '../../shared/directives/infinite-scroll.directive';
+import { InfiniteListStore } from '../../shared/utils/infinite-list-store';
 import { AssistantService } from '../../core/services/assistant.service';
 import { TeacherService } from '../../core/services/teacher.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog/confirm-dialog.service';
 import { ToastService } from '../../core/services/toast.service';
-import { PaginatedResponse } from '../../core/models/paginated-response.model';
 import { AssistantAdminListItem } from '../../core/models/assistant.model';
 import { TeacherLookupItem } from '../../core/models/teacher.model';
 
@@ -47,7 +48,13 @@ function passwordsMatchValidator(group: AbstractControl): ValidationErrors | nul
 @Component({
   selector: 'app-assistant-list',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, EmptyStateComponent, SearchableSelectComponent],
+  imports: [
+    ReactiveFormsModule,
+    RouterLink,
+    EmptyStateComponent,
+    SearchableSelectComponent,
+    InfiniteScrollDirective,
+  ],
   templateUrl: 'assistant-list.component.html',
   styleUrl: 'assistant-list.component.css',
 })
@@ -60,11 +67,20 @@ export class AssistantListComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
 
   protected readonly searchControl = new FormControl<string>('', { nonNullable: true });
-  protected readonly page = signal<PaginatedResponse<AssistantAdminListItem[]> | null>(null);
   protected readonly teacherOptions = signal<SearchableSelectOption[]>([]);
   protected selectedTeacherId: number | null = null;
 
-  private currentPage = 1;
+  /** Infinite-scroll list state: accumulates pages, appends on scroll. */
+  protected readonly store = new InfiniteListStore<AssistantAdminListItem>(
+    DEFAULT_PAGE_SIZE,
+    (page, pageSize) =>
+      this.assistantService.getAllAssistants({
+        page,
+        pageSize,
+        search: this.searchControl.value,
+        teacherId: this.selectedTeacherId,
+      }),
+  );
 
   // ── Activate/Deactivate — per-row in-flight guard prevents duplicate requests ──
   protected readonly togglingIds = signal<Set<number>>(new Set());
@@ -85,25 +101,16 @@ export class AssistantListComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadTeacherLookup();
-    this.load();
+    this.store.reset();
 
     this.searchControl.valueChanges
       .pipe(debounceTime(350), distinctUntilChanged())
-      .subscribe(() => {
-        this.currentPage = 1;
-        this.load();
-      });
+      .subscribe(() => this.store.reset());
   }
 
   protected onTeacherFilterChange(value: number | string | null): void {
     this.selectedTeacherId = value == null ? null : Number(value);
-    this.currentPage = 1;
-    this.load();
-  }
-
-  protected goToPage(page: number): void {
-    this.currentPage = page;
-    this.load();
+    this.store.reset();
   }
 
   // ── Activate/Deactivate ──────────────────────────────────────────────────
@@ -133,7 +140,7 @@ export class AssistantListComponent implements OnInit {
       next: () => {
         this.toast.success('Assistant deactivated.');
         this.setToggling(a.id, false);
-        this.load();
+        this.store.reset();
       },
       error: () => this.setToggling(a.id, false),
     });
@@ -147,7 +154,7 @@ export class AssistantListComponent implements OnInit {
       next: () => {
         this.toast.success('Assistant activated.');
         this.setToggling(a.id, false);
-        this.load();
+        this.store.reset();
       },
       error: () => this.setToggling(a.id, false),
     });
@@ -212,14 +219,4 @@ export class AssistantListComponent implements OnInit {
     });
   }
 
-  private load(): void {
-    this.assistantService
-      .getAllAssistants({
-        page: this.currentPage,
-        pageSize: DEFAULT_PAGE_SIZE,
-        search: this.searchControl.value,
-        teacherId: this.selectedTeacherId,
-      })
-      .subscribe((result) => this.page.set(result));
-  }
 }
