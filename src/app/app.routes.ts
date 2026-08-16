@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 import { loginGuard } from './core/guards/login.guard';
+import { permissionGuard } from './core/guards/permission.guard';
 
 /**
  * Top-level routing. Public login sits outside the layout; everything else is
@@ -59,6 +60,15 @@ export const APP_ROUTES: Routes = [
           import('./features/student-accounts/student-accounts.routes').then(
             (m) => m.STUDENT_ACCOUNTS_ROUTES,
           ),
+      },
+      {
+        path: 'subscription-requests',
+        canActivate: [permissionGuard],
+        data: { breadcrumb: 'Subscription requests', roles: ['SuperAdmin'] },
+        loadComponent: () =>
+          import(
+            './features/subscription-requests/subscription-requests.component'
+          ).then((m) => m.SubscriptionRequestsComponent),
       },
     ],
   },

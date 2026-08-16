@@ -9,8 +9,11 @@ import {
   AdminExtendRequest,
   AdminPendingQueueItem,
   AdminSetEndDateRequest,
+  AdminSubscriptionRequestQueueItem,
   CancelSubscriptionRequest,
   CurrentSubscriptionDto,
+  RejectSubscriptionRequestRequest,
+  SubscriptionRequestDto,
 } from '../models/subscription.model';
 import { TeacherSubscriptionDto } from '../models/teacher.model';
 import { PaginatedResponse } from '../models/paginated-response.model';
@@ -126,6 +129,55 @@ export class SubscriptionService {
       .post<ApiResult<unknown>>(
         `${this.base}/admin/subscriptions/pending/${pendingPaymentId}/approve`,
         {},
+      )
+      .pipe(map((r) => r.data));
+  }
+
+  /**
+   * GET /api/admin/subscriptions/requests
+   * Paginated queue of teacher-submitted new-subscription requests awaiting
+   * SuperAdmin review (Pending only, oldest first / FIFO).
+   */
+  getSubscriptionRequests(
+    page = 1,
+    pageSize = 20,
+  ): Observable<PaginatedResponse<AdminSubscriptionRequestQueueItem[]>> {
+    return this.http
+      .get<ApiResult<PaginatedResponse<AdminSubscriptionRequestQueueItem[]>>>(
+        `${this.base}/admin/subscriptions/requests`,
+        { params: { page, pageSize } },
+      )
+      .pipe(map((r) => r.data));
+  }
+
+  /**
+   * POST /api/admin/subscriptions/requests/{id}/approve
+   * Approves a pending request and activates the teacher's subscription
+   * (Full → capacity = requestedStudents; Managerial → managerial activation).
+   * Payment is coordinated outside the app — approval only activates.
+   */
+  approveSubscriptionRequest(id: number): Observable<SubscriptionRequestDto> {
+    return this.http
+      .post<ApiResult<SubscriptionRequestDto>>(
+        `${this.base}/admin/subscriptions/requests/${id}/approve`,
+        {},
+      )
+      .pipe(map((r) => r.data));
+  }
+
+  /**
+   * POST /api/admin/subscriptions/requests/{id}/reject
+   * Rejects a pending request with a required reason (max 500 chars).
+   */
+  rejectSubscriptionRequest(
+    id: number,
+    rejectionReason: string,
+  ): Observable<SubscriptionRequestDto> {
+    const body: RejectSubscriptionRequestRequest = { rejectionReason };
+    return this.http
+      .post<ApiResult<SubscriptionRequestDto>>(
+        `${this.base}/admin/subscriptions/requests/${id}/reject`,
+        body,
       )
       .pipe(map((r) => r.data));
   }

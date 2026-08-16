@@ -123,6 +123,7 @@ export class SidebarComponent {
   protected readonly items: NavItem[] = [
     { label: 'Dashboard', icon: '📊', route: '/dashboard' },
     { label: 'Teachers', icon: '🧑‍🏫', route: '/teachers' },
+    { label: 'Subscription Requests', icon: '🧾', route: '/subscription-requests' },
     { label: 'Assistants', icon: '🧑‍💼', route: '/assistants' },
     { label: 'Students', icon: '🎓', route: '/students' },
     { label: 'Student Accounts', icon: '🪪', route: '/student-accounts' },

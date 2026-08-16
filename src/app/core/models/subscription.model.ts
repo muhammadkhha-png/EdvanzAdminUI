@@ -47,6 +47,50 @@ export interface AdminSetEndDateRequest {
   newEndDate: string;
 }
 
+// ── New-subscription request queue (/api/admin/subscriptions/requests/*) ──────
+
+/** Lifecycle status of a teacher's new-subscription request (string enum). */
+export type SubscriptionRequestStatus =
+  | 'Pending'
+  | 'Approved'
+  | 'Rejected'
+  | string;
+
+/**
+ * One row in the SuperAdmin new-subscription request queue.
+ * `computedAmountEGP` is server-computed: Full = requestedStudents × 2.5 EGP,
+ * Managerial = flat 500 EGP/month. Only Pending rows are returned (FIFO / oldest first).
+ */
+export interface AdminSubscriptionRequestQueueItem {
+  id: number;
+  teacherId: number;
+  teacherName: string;
+  teacherCode: string;
+  planType: SubscriptionPlanType;
+  requestedStudents: number;
+  computedAmountEGP: number;
+  note: string | null;
+  requestedAt: string;
+}
+
+/** Full request record returned by approve/reject (SubscriptionRequestDto). */
+export interface SubscriptionRequestDto {
+  id: number;
+  planType: SubscriptionPlanType;
+  requestedStudents: number;
+  computedAmountEGP: number;
+  status: SubscriptionRequestStatus;
+  note: string | null;
+  rejectionReason: string | null;
+  requestedAt: string;
+  resolvedAt: string | null;
+}
+
+/** POST /api/admin/subscriptions/requests/{id}/reject — reason is required (max 500). */
+export interface RejectSubscriptionRequestRequest {
+  rejectionReason: string;
+}
+
 // ── Pending payments queue ────────────────────────────────────────────────────
 export interface AdminPendingQueueItem {
   id: number;
