@@ -1,0 +1,100 @@
+<div class="page-header">
+  <div>
+    <h2 class="h4 mb-1">Centers</h2>
+    <p class="text-muted mb-0">Manage center accounts, their teachers, and subscriptions.</p>
+  </div>
+  <a routerLink="/centers/new" class="btn btn-primary">+ Add center</a>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <div class="mb-3">
+      <input
+        type="search"
+        class="form-control"
+        placeholder="Search by name or code…"
+        [formControl]="searchControl"
+      />
+    </div>
+
+    @if (!loaded() && loading()) {
+      <div class="list-footer"><span class="spinner-sm"></span> Loading…</div>
+    } @else if (isEmpty()) {
+      <app-empty-state
+        icon="🏢"
+        title="No centers found"
+        message="Try a different search, or add a new center."
+      />
+    } @else {
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Code</th>
+                <th class="text-end">Full teachers</th>
+                <th class="text-end">Managerial teachers</th>
+                <th class="text-end">Total teachers</th>
+                <th class="text-end" title="Set and managed by the center — not editable from this portal">Revenue share</th>
+                <th>Status</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (center of filteredCenters(); track center.centerId) {
+                <tr>
+                  <td class="fw-medium">{{ center.name }}</td>
+                  <td class="text-muted font-monospace">{{ center.centerCode }}</td>
+                  <td class="text-end">{{ center.fullTeacherCount }}</td>
+                  <td class="text-end">{{ center.managerialTeacherCount }}</td>
+                  <td class="text-end">{{ center.teacherCount }}</td>
+                  <td class="text-end">{{ center.defaultRevenueSharePercent }}%</td>
+                  <td>
+                    <span
+                      class="badge"
+                      [class.text-bg-success]="center.accountStatus === 'Active'"
+                      [class.text-bg-secondary]="center.accountStatus !== 'Active'"
+                    >
+                      {{ center.accountStatus }}
+                    </span>
+                  </td>
+                  <td class="text-end text-nowrap">
+                    <a
+                      [routerLink]="['/centers', center.centerId]"
+                      class="btn btn-sm btn-outline-secondary"
+                    >
+                      View
+                    </a>
+
+                    @if (center.accountStatus === 'Active') {
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-warning ms-1"
+                        [disabled]="isBusy(center.centerId)"
+                        (click)="deactivate(center)"
+                      >
+                        {{ isBusy(center.centerId) ? 'Working…' : 'Deactivate' }}
+                      </button>
+                    } @else {
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-success ms-1"
+                        [disabled]="isBusy(center.centerId)"
+                        (click)="activate(center)"
+                      >
+                        {{ isBusy(center.centerId) ? 'Working…' : 'Activate' }}
+                      </button>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <div class="list-count">
+          Showing {{ filteredCenters().length }} of {{ centers().length }} centers
+        </div>
+    }
+  </div>
+</div>

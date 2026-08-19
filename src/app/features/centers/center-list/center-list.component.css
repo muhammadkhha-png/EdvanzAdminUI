@@ -1,0 +1,12 @@
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+.card {
+  border: 1px solid var(--edvanz-border, #e5e7eb);
+  border-radius: 14px;
+}

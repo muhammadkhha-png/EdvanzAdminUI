@@ -41,6 +41,13 @@ export const APP_ROUTES: Routes = [
           ),
       },
       {
+        path: 'centers',
+        loadChildren: () =>
+          import('./features/centers/centers.routes').then(
+            (m) => m.CENTERS_ROUTES,
+          ),
+      },
+      {
         path: 'assistants',
         loadChildren: () =>
           import('./features/assistants/assistants.routes').then(
@@ -69,6 +76,24 @@ export const APP_ROUTES: Routes = [
           import(
             './features/subscription-requests/subscription-requests.component'
           ).then((m) => m.SubscriptionRequestsComponent),
+      },
+      {
+        path: 'center-subscription-requests',
+        canActivate: [permissionGuard],
+        data: { breadcrumb: 'Center subscription requests', roles: ['SuperAdmin'] },
+        loadComponent: () =>
+          import(
+            './features/center-subscription-requests/center-subscription-requests.component'
+          ).then((m) => m.CenterSubscriptionRequestsComponent),
+      },
+      {
+        path: 'teacher-independence-requests',
+        canActivate: [permissionGuard],
+        data: { breadcrumb: 'Teacher independence requests', roles: ['SuperAdmin'] },
+        loadComponent: () =>
+          import(
+            './features/teacher-independence-requests/teacher-independence-requests.component'
+          ).then((m) => m.TeacherIndependenceRequestsComponent),
       },
     ],
   },

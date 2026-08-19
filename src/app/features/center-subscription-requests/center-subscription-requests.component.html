@@ -1,0 +1,183 @@
+<div class="page-header">
+  <div>
+    <h2 class="h4 mb-1">Center subscription requests</h2>
+    <p class="text-muted mb-0">
+      Review center-submitted quota-package requests. Approving activates the
+      quotas; payment is coordinated with the team separately.
+    </p>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <h3 class="h6 mb-3">Per-slot pricing</h3>
+    <form [formGroup]="pricingForm" (ngSubmit)="savePricing()" class="row g-3 align-items-end" novalidate>
+      <div class="col-sm-4">
+        <label class="form-label">Full teacher slot (EGP)</label>
+        <input type="number" min="0" class="form-control" formControlName="fullTeacherSlotPriceEGP" />
+      </div>
+      <div class="col-sm-4">
+        <label class="form-label">Managerial teacher slot (EGP)</label>
+        <input type="number" min="0" class="form-control" formControlName="managerialTeacherSlotPriceEGP" />
+      </div>
+      <div class="col-sm-4">
+        <button type="submit" class="btn btn-primary" [disabled]="pricingForm.invalid || pricingSaving()">
+          {{ pricingSaving() ? 'Saving…' : 'Save pricing' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    @if (!loaded() && loading()) {
+      <div class="list-footer"><span class="spinner-sm"></span> Loading…</div>
+    } @else if (isEmpty()) {
+      <app-empty-state
+        icon="🧾"
+        title="No pending requests"
+        message="There are no center subscription requests awaiting review."
+      />
+    } @else {
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead>
+              <tr>
+                <th>Center</th>
+                <th class="text-end">Full slots</th>
+                <th class="text-end">Managerial slots</th>
+                <th class="text-end">Capacity (total)</th>
+                <th class="text-end">Amount (EGP)</th>
+                <th>Submitted</th>
+                <th>Note</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (req of requests(); track req.requestId) {
+                <tr>
+                  <td>
+                    <div class="fw-medium">{{ req.centerName }}</div>
+                    <div class="text-muted font-monospace small">{{ req.centerCode }}</div>
+                  </td>
+                  <td class="text-end">{{ req.fullTeacherSlots }}</td>
+                  <td class="text-end">{{ req.managerialTeacherSlots }}</td>
+                  <td class="text-end">{{ req.studentCapacityTotal }}</td>
+                  <td class="text-end fw-medium">{{ req.computedAmountEGP | number: '1.0-2' }}</td>
+                  <td class="text-nowrap">{{ req.requestedAt | date: 'medium' }}</td>
+                  <td class="note-cell text-muted">{{ req.note || '—' }}</td>
+                  <td class="text-end text-nowrap">
+                    <button type="button" class="btn btn-sm btn-success" (click)="startApprove(req)">Approve</button>
+                    <button type="button" class="btn btn-sm btn-outline-danger ms-1" (click)="openReject(req)">Reject</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <div class="list-count">
+          {{ requests().length }} pending request(s)
+        </div>
+    }
+  </div>
+</div>
+
+@if (approveTarget(); as target) {
+  <div class="rj-backdrop" (click)="closeApprove()"></div>
+  <div class="rj-modal" role="dialog" aria-modal="true">
+    <h5 class="rj-title">Approve request — {{ target.centerName }}</h5>
+    <p class="rj-message">
+      Adjust the quotas if needed, then confirm to activate. Payment
+      ({{ target.computedAmountEGP | number: '1.0-2' }} EGP) is coordinated
+      separately — approving only activates the quotas.
+    </p>
+
+    <form [formGroup]="approveForm" (ngSubmit)="submitApprove()" novalidate>
+      <div class="row g-2">
+        <div class="col-sm-6">
+          <label class="form-label">Full teacher slots</label>
+          <input type="number" min="0" class="form-control" formControlName="fullTeacherSlots" />
+        </div>
+        <div class="col-sm-6">
+          <label class="form-label">Managerial teacher slots</label>
+          <input type="number" min="0" class="form-control" formControlName="managerialTeacherSlots" />
+        </div>
+        <div class="col-sm-4">
+          <label class="form-label">Capacity (total)</label>
+          <input type="number" min="0" class="form-control" formControlName="studentCapacityTotal" />
+        </div>
+        <div class="col-sm-4">
+          <label class="form-label">Under Full</label>
+          <input type="number" min="0" class="form-control" formControlName="studentCapacityUnderFull" />
+        </div>
+        <div class="col-sm-4">
+          <label class="form-label">Under Managerial</label>
+          <input type="number" min="0" class="form-control" formControlName="studentCapacityUnderManagerial" />
+        </div>
+        <div class="col-sm-6">
+          <label class="form-label">Duration (days)</label>
+          <input type="number" min="1" class="form-control" formControlName="durationDays" />
+        </div>
+        <div class="col-sm-6">
+          <label class="form-label">Note (optional)</label>
+          <input type="text" class="form-control" formControlName="note" maxlength="300" />
+        </div>
+      </div>
+
+      @if (approveMismatch()) {
+        <div class="mismatch-warning mt-2">
+          ⚠ Under-Full + Under-Managerial ({{ approveUnderSum() }}) doesn't equal the total ({{ approveForm.controls.studentCapacityTotal.value }}). You can still approve.
+        </div>
+      }
+
+      <div class="rj-actions">
+        <button type="button" class="btn btn-outline-secondary" [disabled]="approveSubmitting()" (click)="closeApprove()">Cancel</button>
+        <button type="submit" class="btn btn-success" [disabled]="approveForm.invalid || approveSubmitting()">
+          {{ approveSubmitting() ? 'Approving…' : 'Approve & activate' }}
+        </button>
+      </div>
+    </form>
+  </div>
+}
+
+@if (rejectTarget(); as target) {
+  <div class="rj-backdrop" (click)="closeReject()"></div>
+  <div class="rj-modal" role="dialog" aria-modal="true">
+    <h5 class="rj-title">Reject request — {{ target.centerName }}</h5>
+    <p class="rj-message">
+      Rejecting the quota request from {{ target.centerName }} ({{ target.centerCode }}).
+      The center sees the reason below, so keep it clear.
+    </p>
+
+    <form (ngSubmit)="submitReject()" novalidate>
+      <div class="mb-2">
+        <label class="form-label" for="rejectReason">Rejection reason</label>
+        <textarea
+          id="rejectReason"
+          class="form-control"
+          rows="3"
+          [formControl]="rejectReason"
+          [maxlength]="reasonMax"
+          [class.is-invalid]="isReasonInvalid()"
+          placeholder="Why is this request being rejected?"
+        ></textarea>
+        @if (isReasonInvalid() && rejectReason.errors?.['required']) {
+          <div class="invalid-feedback d-block">A reason is required.</div>
+        } @else if (isReasonInvalid() && rejectReason.errors?.['maxlength']) {
+          <div class="invalid-feedback d-block">
+            Reason must be {{ reasonMax }} characters or fewer.
+          </div>
+        }
+      </div>
+
+      <div class="rj-actions">
+        <button type="button" class="btn btn-outline-secondary" [disabled]="rejectSubmitting()" (click)="closeReject()">Cancel</button>
+        <button type="submit" class="btn btn-danger" [disabled]="rejectSubmitting()">
+          {{ rejectSubmitting() ? 'Rejecting…' : 'Reject request' }}
+        </button>
+      </div>
+    </form>
+  </div>
+}

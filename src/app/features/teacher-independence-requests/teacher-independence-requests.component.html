@@ -1,0 +1,115 @@
+<div class="page-header">
+  <div>
+    <h2 class="h4 mb-1">Teacher independence requests</h2>
+    <p class="text-muted mb-0">
+      Teachers asking to leave their center and run their own account. Approving detaches the teacher
+      from the center — they keep their login and data and then subscribe on their own.
+    </p>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    @if (!loaded() && loading()) {
+      <div class="list-footer"><span class="spinner-sm"></span> Loading…</div>
+    } @else if (isEmpty()) {
+      <app-empty-state
+        icon="🚪"
+        title="No pending requests"
+        message="There are no teacher independence requests awaiting review."
+      />
+    } @else {
+      <div class="table-responsive">
+        <table class="table align-middle">
+          <thead>
+            <tr>
+              <th>Teacher</th>
+              <th>Center</th>
+              <th>Requested</th>
+              <th class="note-cell">Reason</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (req of requests(); track req.requestId) {
+              <tr>
+                <td>
+                  <div class="fw-medium">{{ req.teacherName }}</div>
+                  <div class="text-muted font-monospace small">{{ req.teacherCode }}</div>
+                </td>
+                <td>
+                  <div class="fw-medium">{{ req.centerName }}</div>
+                  <div class="text-muted font-monospace small">{{ req.centerCode }}</div>
+                </td>
+                <td class="text-nowrap">{{ req.requestedAt | date: 'medium' }}</td>
+                <td class="note-cell text-muted">{{ req.note || '—' }}</td>
+                <td class="text-end text-nowrap">
+                  <button type="button" class="btn btn-sm btn-success" (click)="startApprove(req)">Approve</button>
+                  <button type="button" class="btn btn-sm btn-outline-danger ms-1" (click)="openReject(req)">Reject</button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <div class="list-count">{{ requests().length }} pending</div>
+    }
+  </div>
+</div>
+
+@if (approveTarget(); as target) {
+  <div class="rj-backdrop" (click)="closeApprove()"></div>
+  <div class="rj-modal" role="dialog" aria-modal="true">
+    <h5 class="rj-title">Approve — detach {{ target.teacherName }}</h5>
+    <p class="rj-message">
+      This detaches <strong>{{ target.teacherName }}</strong> ({{ target.teacherCode }}) from
+      <strong>{{ target.centerName }}</strong>. They become a standalone teacher: they keep their
+      login and data, stop being covered by the center's subscription, and subscribe on their own.
+      This cannot be undone from here.
+    </p>
+    <div class="rj-actions">
+      <button type="button" class="btn btn-outline-secondary" [disabled]="approveSubmitting()" (click)="closeApprove()">Cancel</button>
+      <button type="button" class="btn btn-success" [disabled]="approveSubmitting()" (click)="submitApprove()">
+        {{ approveSubmitting() ? 'Detaching…' : 'Approve & detach' }}
+      </button>
+    </div>
+  </div>
+}
+
+@if (rejectTarget(); as target) {
+  <div class="rj-backdrop" (click)="closeReject()"></div>
+  <div class="rj-modal" role="dialog" aria-modal="true">
+    <h5 class="rj-title">Reject request — {{ target.teacherName }}</h5>
+    <p class="rj-message">
+      Rejecting the independence request from {{ target.teacherName }}. The teacher sees the reason
+      below, so keep it clear.
+    </p>
+
+    <form (ngSubmit)="submitReject()" novalidate>
+      <div class="mb-2">
+        <label class="form-label" for="rejectReason">Rejection reason (optional)</label>
+        <textarea
+          id="rejectReason"
+          class="form-control"
+          rows="3"
+          [formControl]="rejectReason"
+          [maxlength]="reasonMax"
+          [class.is-invalid]="isReasonInvalid()"
+          placeholder="Why is this request being rejected?"
+        ></textarea>
+        @if (isReasonInvalid() && rejectReason.errors?.['maxlength']) {
+          <div class="invalid-feedback d-block">
+            Reason must be {{ reasonMax }} characters or fewer.
+          </div>
+        }
+      </div>
+
+      <div class="rj-actions">
+        <button type="button" class="btn btn-outline-secondary" [disabled]="rejectSubmitting()" (click)="closeReject()">Cancel</button>
+        <button type="submit" class="btn btn-danger" [disabled]="rejectSubmitting()">
+          {{ rejectSubmitting() ? 'Rejecting…' : 'Reject request' }}
+        </button>
+      </div>
+    </form>
+  </div>
+}

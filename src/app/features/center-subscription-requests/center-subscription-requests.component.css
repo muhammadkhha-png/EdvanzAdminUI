@@ -1,0 +1,59 @@
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+.card {
+  border: 1px solid var(--edvanz-border, #e5e7eb);
+  border-radius: 14px;
+}
+.note-cell {
+  max-width: 220px;
+  white-space: normal;
+  word-break: break-word;
+}
+.mismatch-warning {
+  font-size: 0.825rem;
+  color: #92400e;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+}
+
+/* Approve/reject modals — mirror the teacher subscription-requests modal. */
+.rj-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 1085;
+}
+.rj-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  border-radius: 14px;
+  padding: 1.5rem;
+  width: min(520px, 92vw);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+  z-index: 1086;
+}
+.rj-title {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+}
+.rj-message {
+  color: var(--edvanz-muted, #6b7280);
+  margin-bottom: 1.25rem;
+}
+.rj-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
