@@ -1,0 +1,1 @@
+import"./chunk-POLL2CVR.js";var n=[{path:"",loadComponent:()=>import("./chunk-Y2JMYX3F.js").then(t=>t.StudentAccountsListComponent),data:{breadcrumb:"Student Accounts"}}];export{n as STUDENT_ACCOUNTS_ROUTES};
