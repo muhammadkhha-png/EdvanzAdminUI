@@ -8,7 +8,7 @@ import { TeacherService } from '../../core/services/teacher.service';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { InfiniteScrollDirective } from '../../shared/directives/infinite-scroll.directive';
 import { InfiniteListStore } from '../../shared/utils/infinite-list-store';
-import { formatDateTime, timeAgo } from '../../shared/utils/time-format';
+import { formatDate, formatDateTime, timeAgo } from '../../shared/utils/time-format';
 import { SubscriptionStatusBadgeComponent } from '../teachers/subscription-panel/subscription-status-badge.component';
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -16,6 +16,9 @@ const DEFAULT_PAGE_SIZE = 10;
 /** Backend clamps pageSize at 100; a teacher has a handful of assistants at most,
  *  so one page always covers the expansion. */
 const ASSISTANTS_PAGE_SIZE = 100;
+
+/** Window for the "Newly subscribed" tab — current subscription started within this many days. */
+const NEWLY_SUBSCRIBED_DAYS = 30;
 
 /**
  * Activity Monitor: read-only usage view of teachers and the assistant accounts
@@ -52,6 +55,12 @@ export class ActivityMonitorComponent implements OnInit {
 
   protected readonly timeAgo = timeAgo;
   protected readonly formatDateTime = formatDateTime;
+  protected readonly formatDate = formatDate;
+  protected readonly newlySubscribedDays = NEWLY_SUBSCRIBED_DAYS;
+
+  /** 'all' = every teacher; 'new' = subscribed within the last NEWLY_SUBSCRIBED_DAYS,
+   *  newest subscription first (server-side filter + sort). */
+  protected readonly activeTab = signal<'all' | 'new'>('all');
 
   protected readonly store = new InfiniteListStore<TeacherListItem>(
     DEFAULT_PAGE_SIZE,
@@ -60,7 +69,11 @@ export class ActivityMonitorComponent implements OnInit {
         page,
         pageSize,
         search: this.searchControl.value,
-        subscriptionStatus: this.subscriptionFilter.value || undefined,
+        // The newly-subscribed tab is implicitly "subscribed" — the status filter
+        // only applies on the All tab (it's hidden on the other one).
+        subscriptionStatus:
+          this.activeTab() === 'all' ? this.subscriptionFilter.value || undefined : undefined,
+        subscribedWithinDays: this.activeTab() === 'new' ? NEWLY_SUBSCRIBED_DAYS : undefined,
       }),
   );
 
@@ -86,6 +99,22 @@ export class ActivityMonitorComponent implements OnInit {
     this.subscriptionFilter.valueChanges
       .pipe(distinctUntilChanged())
       .subscribe(() => this.store.reset());
+  }
+
+  protected setTab(tab: 'all' | 'new'): void {
+    if (this.activeTab() === tab) return;
+    this.activeTab.set(tab);
+    this.store.reset();
+  }
+
+  /** Effective "last seen" for an assistant row: the later of last activity and
+   *  last login (mirrors the server-side rollup on the teacher row). */
+  protected lastSeen(a: AssistantAdminListItem): string | null {
+    const activity = a.lastActivityAt ?? null;
+    const login = a.lastLoginAt ?? null;
+    if (!activity) return login;
+    if (!login) return activity;
+    return activity > login ? activity : login;
   }
 
   protected isExpanded(teacherId: number): boolean {

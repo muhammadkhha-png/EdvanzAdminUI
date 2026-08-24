@@ -2,13 +2,37 @@
   <div>
     <h2 class="h4 mb-1">Activity Monitor</h2>
     <p class="text-muted mb-0">
-      Teachers and their assistant accounts — last login and last time the app was used.
+      Teachers and their assistant accounts — who last used the app, and when.
     </p>
   </div>
 </div>
 
 <div class="card">
   <div class="card-body">
+    <ul class="nav nav-pills monitor-tabs mb-3">
+      <li class="nav-item">
+        <button
+          type="button"
+          class="nav-link"
+          [class.active]="activeTab() === 'all'"
+          (click)="setTab('all')"
+        >
+          All teachers
+        </button>
+      </li>
+      <li class="nav-item">
+        <button
+          type="button"
+          class="nav-link"
+          [class.active]="activeTab() === 'new'"
+          (click)="setTab('new')"
+        >
+          Newly subscribed
+          <span class="tab-hint">last {{ newlySubscribedDays }} days</span>
+        </button>
+      </li>
+    </ul>
+
     <div class="filters mb-3">
       <input
         type="search"
@@ -16,12 +40,14 @@
         placeholder="Search teachers by name, username or code…"
         [formControl]="searchControl"
       />
-      <select class="form-select filter-subscription" [formControl]="subscriptionFilter">
-        <option value="">All subscriptions</option>
-        <option value="Active">Subscribed (Active)</option>
-        <option value="ExpiringSoon">Expiring soon</option>
-        <option value="Expired">Expired</option>
-      </select>
+      @if (activeTab() === 'all') {
+        <select class="form-select filter-subscription" [formControl]="subscriptionFilter">
+          <option value="">All subscriptions</option>
+          <option value="Active">Subscribed (Active)</option>
+          <option value="ExpiringSoon">Expiring soon</option>
+          <option value="Expired">Expired</option>
+        </select>
+      }
     </div>
 
     @if (!store.initialized() && store.loading()) {
@@ -29,8 +55,12 @@
     } @else if (store.isEmpty()) {
       <app-empty-state
         icon="🕒"
-        title="No teachers found"
-        message="Try a different search or subscription filter."
+        [title]="activeTab() === 'new' ? 'No newly subscribed teachers' : 'No teachers found'"
+        [message]="
+          activeTab() === 'new'
+            ? 'No teacher started a subscription in the last ' + newlySubscribedDays + ' days.'
+            : 'Try a different search or subscription filter.'
+        "
       />
     } @else {
       <div class="table-responsive">
@@ -39,9 +69,8 @@
             <tr>
               <th class="expand-col"></th>
               <th>Teacher</th>
-              <th>Username</th>
-              <th>Code</th>
               <th>Subscription</th>
+              <th>Subscribed on</th>
               <th class="text-end">Assistants</th>
               <th>Last login</th>
               <th>Last activity</th>
@@ -49,7 +78,7 @@
           </thead>
           <tbody>
             @for (teacher of store.items(); track teacher.id) {
-              <tr>
+              <tr class="teacher-row" (click)="toggleExpand(teacher)">
                 <td class="expand-col">
                   <button
                     type="button"
@@ -59,16 +88,23 @@
                       (isExpanded(teacher.id) ? 'Collapse assistants of ' : 'Expand assistants of ') +
                       teacher.fullName
                     "
-                    (click)="toggleExpand(teacher)"
                   >
                     {{ isExpanded(teacher.id) ? '▾' : '▸' }}
                   </button>
                 </td>
-                <td class="fw-medium">{{ teacher.fullName }}</td>
-                <td class="text-muted">{{ teacher.username }}</td>
-                <td class="text-muted font-monospace">{{ teacher.teacherCode }}</td>
+                <td>
+                  <div class="fw-medium">{{ teacher.fullName }}</div>
+                  <div class="text-muted small">{{ teacher.username }}</div>
+                </td>
                 <td>
                   <app-subscription-status-badge [status]="teacher.subscriptionStatus ?? ''" />
+                </td>
+                <td class="text-nowrap">
+                  @if (teacher.subscriptionStartDate) {
+                    {{ formatDate(teacher.subscriptionStartDate) }}
+                  } @else {
+                    <span class="text-muted">—</span>
+                  }
                 </td>
                 <td class="text-end">
                   <span
@@ -89,19 +125,22 @@
                   }
                 </td>
                 <td class="text-nowrap">
-                  @if (teacher.lastActivityAt) {
-                    <span [title]="formatDateTime(teacher.lastActivityAt)">{{
-                      timeAgo(teacher.lastActivityAt)
+                  @if (teacher.teamLastActivityAt) {
+                    <span [title]="formatDateTime(teacher.teamLastActivityAt)">{{
+                      timeAgo(teacher.teamLastActivityAt)
                     }}</span>
+                    @if (teacher.teamLastActivityIsAssistant) {
+                      <span class="actor-hint">· assistant</span>
+                    }
                   } @else {
-                    <span class="text-muted">—</span>
+                    <span class="text-muted">Never</span>
                   }
                 </td>
               </tr>
 
               @if (isExpanded(teacher.id)) {
                 <tr class="assistants-row">
-                  <td colspan="8">
+                  <td colspan="7">
                     @if (assistantsLoading().has(teacher.id)) {
                       <div class="list-footer">
                         <span class="spinner-sm"></span> Loading assistants…
@@ -116,9 +155,7 @@
                           <tr>
                             <th>Assistant</th>
                             <th>Username</th>
-                            <th>Phone</th>
                             <th>Status</th>
-                            <th>Last login</th>
                             <th>Last activity</th>
                             <th class="text-end">History</th>
                           </tr>
@@ -131,7 +168,6 @@
                             <tr>
                               <td class="fw-medium">{{ assistant.fullName }}</td>
                               <td class="text-muted">{{ assistant.username }}</td>
-                              <td>{{ assistant.phoneNumber || '—' }}</td>
                               <td>
                                 <span
                                   class="badge"
@@ -142,21 +178,10 @@
                                 </span>
                               </td>
                               <td class="text-nowrap">
-                                @if (assistant.lastLoginAt) {
-                                  <span [title]="formatDateTime(assistant.lastLoginAt)">{{
-                                    timeAgo(assistant.lastLoginAt)
-                                  }}</span>
+                                @if (lastSeen(assistant); as seen) {
+                                  <span [title]="formatDateTime(seen)">{{ timeAgo(seen) }}</span>
                                 } @else {
                                   <span class="text-muted">Never</span>
-                                }
-                              </td>
-                              <td class="text-nowrap">
-                                @if (assistant.lastActivityAt) {
-                                  <span [title]="formatDateTime(assistant.lastActivityAt)">{{
-                                    timeAgo(assistant.lastActivityAt)
-                                  }}</span>
-                                } @else {
-                                  <span class="text-muted">—</span>
                                 }
                               </td>
                               <td class="text-end">

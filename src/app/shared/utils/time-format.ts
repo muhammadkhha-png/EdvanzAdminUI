@@ -21,6 +21,17 @@ function parseTimestampMs(iso?: string | null): number {
   return new Date(hasZone ? iso : `${iso}Z`).getTime();
 }
 
+/** Date-only display of an ISO timestamp, e.g. "16 Aug 2026". '' when null/invalid. */
+export function formatDate(iso?: string | null): string {
+  const ms = parseTimestampMs(iso);
+  if (Number.isNaN(ms)) return '';
+  return new Date(ms).toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
 /** Absolute display of an ISO timestamp, e.g. "16 Aug 2026, 19:41". '' when null/invalid. */
 export function formatDateTime(iso?: string | null): string {
   const ms = parseTimestampMs(iso);

@@ -28,6 +28,13 @@ export interface TeacherListItem {
   /** Assistant accounts under this teacher — same population as
    *  GET /api/assistant/all?teacherId={id} (Activity Monitor expand). */
   assistantCount?: number;
+  /** Start date of the CURRENT subscription (ISO UTC), absent/null if never subscribed. */
+  subscriptionStartDate?: string | null;
+  /** Latest "seen" across teacher + all assistants (max of their last activity/login).
+   *  Null when nobody on the team has ever logged in. */
+  teamLastActivityAt?: string | null;
+  /** True when teamLastActivityAt came from an assistant, not the teacher's own account. */
+  teamLastActivityIsAssistant?: boolean;
 }
 
 // ── Teacher detail (GET /api/teacher/{id}/profile) ───────────────────────────
@@ -131,6 +138,9 @@ export interface CapacityAdjustResult {
 export interface TeacherListQuery extends PagedQuery {
   accountStatus?: string;
   subscriptionStatus?: string;
+  /** Only teachers whose CURRENT subscription started within this many days,
+   *  ordered newest-subscription-first (Activity Monitor "Newly subscribed" tab). */
+  subscribedWithinDays?: number;
 }
 
 // ── Dashboard derived from teacher/list totalCount ───────────────────────────

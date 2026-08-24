@@ -33,6 +33,8 @@ export class TeacherService {
     if (query.sortDirection) params = params.set('sortDirection', query.sortDirection);
     if (query.accountStatus) params = params.set('accountStatus', query.accountStatus);
     if (query.subscriptionStatus) params = params.set('subscriptionStatus', query.subscriptionStatus);
+    if (query.subscribedWithinDays != null)
+      params = params.set('subscribedWithinDays', query.subscribedWithinDays);
 
     return this.http
       .get<ApiResult<PaginatedResponse<TeacherListItem[]>>>(`${this.base}/teacher/list`, {

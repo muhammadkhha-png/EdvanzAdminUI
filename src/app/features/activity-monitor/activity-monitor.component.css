@@ -11,6 +11,37 @@
   border-radius: 14px;
 }
 
+/* Tab pills: All teachers / Newly subscribed. */
+.monitor-tabs {
+  gap: 0.25rem;
+}
+.monitor-tabs .nav-link {
+  border: 0;
+  background: none;
+  color: var(--edvanz-muted, #6b7280);
+}
+.monitor-tabs .nav-link.active {
+  background: var(--edvanz-primary, #2563eb);
+  color: #fff;
+}
+.tab-hint {
+  font-size: 0.72rem;
+  opacity: 0.75;
+  margin-left: 0.3rem;
+}
+
+/* Whole teacher row toggles expansion — bigger tap target than the chevron alone. */
+.teacher-row {
+  cursor: pointer;
+}
+
+/* "· assistant" annotation on the team last-activity value. */
+.actor-hint {
+  font-size: 0.75rem;
+  color: var(--edvanz-muted, #6b7280);
+  margin-left: 0.25rem;
+}
+
 /* Search + subscription filter side by side; stacks on narrow screens. */
 .filters {
   display: flex;
