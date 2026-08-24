@@ -19,6 +19,23 @@ export interface AssistantAdminListItem {
   deletedAt?: string;
   updatedAt: string;
   languagePreference?: string;
+  /** Most recent successful login (ISO UTC), or absent/null if never logged in. */
+  lastLoginAt?: string | null;
+  /** "Last seen" — most recent authenticated request (ISO UTC, ±5-min server throttle),
+   *  or absent/null before the account's first request since the column shipped. */
+  lastActivityAt?: string | null;
+}
+
+// ── Login/logout audit row (GET /api/assistant/{id}/login-activity) ─────────
+// Mirrors Edvanz.Application.Dtos.AssistantDtos.LoginActivityDto (REQ-USR-028).
+export interface LoginActivityEntry {
+  id?: number | null;
+  assistantName: string;
+  /** 'login' | 'logOut' — LoginAcitvityActionType serialized as a string. */
+  action: string;
+  occurredAt: string;
+  deviceOrBrowser?: string | null;
+  ipAddress?: string | null;
 }
 
 /** Valid sort columns per Edvanz.Domain.Enums.AssistantSortBy (string enum on the wire). */

@@ -4,7 +4,7 @@ import { map, Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { skipGlobalLoading } from '../interceptors/loading-context';
 import { ApiResult } from '../models/api-result.model';
-import { AssistantAdminListItem, AssistantAdminListQuery, AssistantDetail, CreateAssistantRequest, UpdateAssistantRequest } from '../models/assistant.model';
+import { AssistantAdminListItem, AssistantAdminListQuery, AssistantDetail, CreateAssistantRequest, LoginActivityEntry, UpdateAssistantRequest } from '../models/assistant.model';
 import { PaginatedResponse } from '../models/paginated-response.model';
 
 /**
@@ -78,6 +78,16 @@ export class AssistantService {
   deactivateAssistant(id: number): Observable<string | null> {
     return this.http
       .patch<ApiResult<string | null>>(`${this.base}/assistant/${id}/deactivate`, {})
+      .pipe(map((r) => r.data));
+  }
+
+  /** GET /api/assistant/{id}/login-activity — login/logout audit trail (newest first),
+   *  with device/browser and IP per event. Activity Monitor drill-in. */
+  getLoginActivity(id: number): Observable<LoginActivityEntry[]> {
+    return this.http
+      .get<ApiResult<LoginActivityEntry[]>>(`${this.base}/assistant/${id}/login-activity`, {
+        context: skipGlobalLoading(),
+      })
       .pipe(map((r) => r.data));
   }
 }

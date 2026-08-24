@@ -128,6 +128,7 @@ export class SidebarComponent {
     { label: 'Center Subscription Requests', icon: '📋', route: '/center-subscription-requests' },
     { label: 'Teacher Independence Requests', icon: '🚪', route: '/teacher-independence-requests' },
     { label: 'Assistants', icon: '🧑‍💼', route: '/assistants' },
+    { label: 'Activity Monitor', icon: '🕒', route: '/activity' },
     { label: 'Students', icon: '🎓', route: '/students' },
     { label: 'Student Accounts', icon: '🪪', route: '/student-accounts' },
   ];

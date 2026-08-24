@@ -22,6 +22,12 @@ export interface TeacherListItem {
   createdAt: string;
   /** Most recent successful login (ISO UTC), or absent/null if never logged in. */
   lastLoginAt?: string | null;
+  /** "Last seen" — most recent authenticated request (ISO UTC, ±5-min server throttle),
+   *  or absent/null before the account's first request since the column shipped. */
+  lastActivityAt?: string | null;
+  /** Assistant accounts under this teacher — same population as
+   *  GET /api/assistant/all?teacherId={id} (Activity Monitor expand). */
+  assistantCount?: number;
 }
 
 // ── Teacher detail (GET /api/teacher/{id}/profile) ───────────────────────────

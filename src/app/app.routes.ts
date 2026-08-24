@@ -69,6 +69,15 @@ export const APP_ROUTES: Routes = [
           ),
       },
       {
+        path: 'activity',
+        canActivate: [permissionGuard],
+        data: { breadcrumb: 'Activity Monitor', roles: ['SuperAdmin'] },
+        loadComponent: () =>
+          import('./features/activity-monitor/activity-monitor.component').then(
+            (m) => m.ActivityMonitorComponent,
+          ),
+      },
+      {
         path: 'subscription-requests',
         canActivate: [permissionGuard],
         data: { breadcrumb: 'Subscription requests', roles: ['SuperAdmin'] },

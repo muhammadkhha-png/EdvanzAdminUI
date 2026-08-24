@@ -1,0 +1,256 @@
+<div class="page-header">
+  <div>
+    <h2 class="h4 mb-1">Activity Monitor</h2>
+    <p class="text-muted mb-0">
+      Teachers and their assistant accounts — last login and last time the app was used.
+    </p>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <div class="filters mb-3">
+      <input
+        type="search"
+        class="form-control filter-search"
+        placeholder="Search teachers by name, username or code…"
+        [formControl]="searchControl"
+      />
+      <select class="form-select filter-subscription" [formControl]="subscriptionFilter">
+        <option value="">All subscriptions</option>
+        <option value="Active">Subscribed (Active)</option>
+        <option value="ExpiringSoon">Expiring soon</option>
+        <option value="Expired">Expired</option>
+      </select>
+    </div>
+
+    @if (!store.initialized() && store.loading()) {
+      <div class="list-footer"><span class="spinner-sm"></span> Loading…</div>
+    } @else if (store.isEmpty()) {
+      <app-empty-state
+        icon="🕒"
+        title="No teachers found"
+        message="Try a different search or subscription filter."
+      />
+    } @else {
+      <div class="table-responsive">
+        <table class="table align-middle">
+          <thead>
+            <tr>
+              <th class="expand-col"></th>
+              <th>Teacher</th>
+              <th>Username</th>
+              <th>Code</th>
+              <th>Subscription</th>
+              <th class="text-end">Assistants</th>
+              <th>Last login</th>
+              <th>Last activity</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (teacher of store.items(); track teacher.id) {
+              <tr>
+                <td class="expand-col">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-link expand-btn"
+                    [attr.aria-expanded]="isExpanded(teacher.id)"
+                    [attr.aria-label]="
+                      (isExpanded(teacher.id) ? 'Collapse assistants of ' : 'Expand assistants of ') +
+                      teacher.fullName
+                    "
+                    (click)="toggleExpand(teacher)"
+                  >
+                    {{ isExpanded(teacher.id) ? '▾' : '▸' }}
+                  </button>
+                </td>
+                <td class="fw-medium">{{ teacher.fullName }}</td>
+                <td class="text-muted">{{ teacher.username }}</td>
+                <td class="text-muted font-monospace">{{ teacher.teacherCode }}</td>
+                <td>
+                  <app-subscription-status-badge [status]="teacher.subscriptionStatus ?? ''" />
+                </td>
+                <td class="text-end">
+                  <span
+                    class="badge rounded-pill"
+                    [class.text-bg-light]="!(teacher.assistantCount ?? 0)"
+                    [class.text-bg-secondary]="(teacher.assistantCount ?? 0) > 0"
+                  >
+                    {{ teacher.assistantCount ?? 0 }}
+                  </span>
+                </td>
+                <td class="text-nowrap">
+                  @if (teacher.lastLoginAt) {
+                    <span [title]="formatDateTime(teacher.lastLoginAt)">{{
+                      timeAgo(teacher.lastLoginAt)
+                    }}</span>
+                  } @else {
+                    <span class="text-muted">Never</span>
+                  }
+                </td>
+                <td class="text-nowrap">
+                  @if (teacher.lastActivityAt) {
+                    <span [title]="formatDateTime(teacher.lastActivityAt)">{{
+                      timeAgo(teacher.lastActivityAt)
+                    }}</span>
+                  } @else {
+                    <span class="text-muted">—</span>
+                  }
+                </td>
+              </tr>
+
+              @if (isExpanded(teacher.id)) {
+                <tr class="assistants-row">
+                  <td colspan="8">
+                    @if (assistantsLoading().has(teacher.id)) {
+                      <div class="list-footer">
+                        <span class="spinner-sm"></span> Loading assistants…
+                      </div>
+                    } @else if (!(assistantsByTeacher().get(teacher.id)?.length)) {
+                      <div class="no-assistants text-muted">
+                        No assistant accounts under {{ teacher.fullName }}.
+                      </div>
+                    } @else {
+                      <table class="table table-sm assistants-table mb-0">
+                        <thead>
+                          <tr>
+                            <th>Assistant</th>
+                            <th>Username</th>
+                            <th>Phone</th>
+                            <th>Status</th>
+                            <th>Last login</th>
+                            <th>Last activity</th>
+                            <th class="text-end">History</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          @for (
+                            assistant of assistantsByTeacher().get(teacher.id);
+                            track assistant.id
+                          ) {
+                            <tr>
+                              <td class="fw-medium">{{ assistant.fullName }}</td>
+                              <td class="text-muted">{{ assistant.username }}</td>
+                              <td>{{ assistant.phoneNumber || '—' }}</td>
+                              <td>
+                                <span
+                                  class="badge"
+                                  [class.text-bg-success]="assistant.accountStatus === 'Active'"
+                                  [class.text-bg-secondary]="assistant.accountStatus !== 'Active'"
+                                >
+                                  {{ assistant.accountStatus }}
+                                </span>
+                              </td>
+                              <td class="text-nowrap">
+                                @if (assistant.lastLoginAt) {
+                                  <span [title]="formatDateTime(assistant.lastLoginAt)">{{
+                                    timeAgo(assistant.lastLoginAt)
+                                  }}</span>
+                                } @else {
+                                  <span class="text-muted">Never</span>
+                                }
+                              </td>
+                              <td class="text-nowrap">
+                                @if (assistant.lastActivityAt) {
+                                  <span [title]="formatDateTime(assistant.lastActivityAt)">{{
+                                    timeAgo(assistant.lastActivityAt)
+                                  }}</span>
+                                } @else {
+                                  <span class="text-muted">—</span>
+                                }
+                              </td>
+                              <td class="text-end">
+                                <button
+                                  type="button"
+                                  class="btn btn-sm btn-outline-secondary"
+                                  (click)="openActivityLog(assistant)"
+                                >
+                                  Activity log
+                                </button>
+                              </td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    }
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="list-count">
+        Showing {{ store.items().length }} of {{ store.totalCount() }} teachers
+      </div>
+
+      @if (store.hasMore()) {
+        <div
+          class="infinite-scroll-sentinel"
+          appInfiniteScroll
+          [appInfiniteScrollDisabled]="store.loading()"
+          (scrolled)="store.loadMore()"
+        ></div>
+      }
+      @if (store.loadingMore()) {
+        <div class="list-footer"><span class="spinner-sm"></span> Loading more…</div>
+      }
+    }
+  </div>
+</div>
+
+@if (activityTarget(); as target) {
+  <div class="al-backdrop" (click)="closeActivityLog()"></div>
+  <div class="al-modal" role="dialog" aria-modal="true">
+    <h5 class="al-title">Login activity — {{ target.fullName }}</h5>
+    <p class="al-subtitle text-muted">
+      Login and logout events, newest first, with the device and IP recorded per event.
+    </p>
+
+    @if (activityLoading()) {
+      <div class="list-footer"><span class="spinner-sm"></span> Loading…</div>
+    } @else if (!(activityLog()?.length)) {
+      <div class="no-assistants text-muted">No login activity recorded yet.</div>
+    } @else {
+      <div class="al-scroll table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Event</th>
+              <th>When</th>
+              <th>Device / browser</th>
+              <th>IP address</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (entry of activityLog(); track $index) {
+              <tr>
+                <td>
+                  <span
+                    class="badge"
+                    [class.text-bg-success]="entry.action === 'login'"
+                    [class.text-bg-secondary]="entry.action !== 'login'"
+                  >
+                    {{ entry.action === 'login' ? 'Login' : 'Logout' }}
+                  </span>
+                </td>
+                <td class="text-nowrap" [title]="formatDateTime(entry.occurredAt)">
+                  {{ formatDateTime(entry.occurredAt) }}
+                </td>
+                <td class="device-cell">{{ entry.deviceOrBrowser || '—' }}</td>
+                <td class="font-monospace">{{ entry.ipAddress || '—' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+
+    <div class="al-actions">
+      <button type="button" class="btn btn-outline-secondary" (click)="closeActivityLog()">
+        Close
+      </button>
+    </div>
+  </div>
+}
