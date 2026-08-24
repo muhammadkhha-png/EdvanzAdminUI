@@ -69,6 +69,7 @@
             <tr>
               <th class="expand-col"></th>
               <th>Teacher</th>
+              <th>Phone</th>
               <th>Subscription</th>
               <th>Subscribed on</th>
               <th class="text-end">Assistants</th>
@@ -96,6 +97,7 @@
                   <div class="fw-medium">{{ teacher.fullName }}</div>
                   <div class="text-muted small">{{ teacher.username }}</div>
                 </td>
+                <td class="text-nowrap">{{ teacher.phoneNumber || '—' }}</td>
                 <td>
                   <app-subscription-status-badge [status]="teacher.subscriptionStatus ?? ''" />
                 </td>
@@ -140,7 +142,7 @@
 
               @if (isExpanded(teacher.id)) {
                 <tr class="assistants-row">
-                  <td colspan="7">
+                  <td colspan="8">
                     @if (assistantsLoading().has(teacher.id)) {
                       <div class="list-footer">
                         <span class="spinner-sm"></span> Loading assistants…
@@ -155,6 +157,7 @@
                           <tr>
                             <th>Assistant</th>
                             <th>Username</th>
+                            <th>Phone</th>
                             <th>Status</th>
                             <th>Last activity</th>
                             <th class="text-end">History</th>
@@ -168,6 +171,7 @@
                             <tr>
                               <td class="fw-medium">{{ assistant.fullName }}</td>
                               <td class="text-muted">{{ assistant.username }}</td>
+                              <td class="text-nowrap">{{ assistant.phoneNumber || '—' }}</td>
                               <td>
                                 <span
                                   class="badge"
