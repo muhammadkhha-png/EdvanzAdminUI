@@ -13,6 +13,8 @@ export interface TeacherListItem {
   studentCount?: number;
   /** Students with an active account link (connected) to this teacher. */
   linkedStudentCount?: number;
+  /** Sessions (classes) owned by this teacher — hard-deleted, so live rows == real count. */
+  sessionCount?: number;
   accountStatus: string;
   isConfigurationCompleted: boolean;
   subscriptionStatus?: string;

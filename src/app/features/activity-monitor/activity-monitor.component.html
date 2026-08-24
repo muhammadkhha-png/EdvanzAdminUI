@@ -72,6 +72,8 @@
               <th>Phone</th>
               <th>Subscription</th>
               <th>Subscribed on</th>
+              <th class="text-end">Students</th>
+              <th class="text-end">Sessions</th>
               <th class="text-end">Assistants</th>
               <th>Last login</th>
               <th>Last activity</th>
@@ -108,6 +110,8 @@
                     <span class="text-muted">—</span>
                   }
                 </td>
+                <td class="text-end">{{ teacher.studentCount ?? 0 }}</td>
+                <td class="text-end">{{ teacher.sessionCount ?? 0 }}</td>
                 <td class="text-end">
                   <span
                     class="badge rounded-pill"
@@ -142,7 +146,7 @@
 
               @if (isExpanded(teacher.id)) {
                 <tr class="assistants-row">
-                  <td colspan="8">
+                  <td colspan="10">
                     @if (assistantsLoading().has(teacher.id)) {
                       <div class="list-footer">
                         <span class="spinner-sm"></span> Loading assistants…
