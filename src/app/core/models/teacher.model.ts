@@ -143,6 +143,12 @@ export interface TeacherListQuery extends PagedQuery {
   /** Only teachers whose CURRENT subscription started within this many days,
    *  ordered newest-subscription-first (Activity Monitor "Newly subscribed" tab). */
   subscribedWithinDays?: number;
+  /** Inclusive lower bound (yyyy-MM-dd) on REGISTRATION date (createdAt). */
+  registeredFrom?: string;
+  /** Inclusive upper bound (yyyy-MM-dd) on REGISTRATION date (createdAt) — the whole
+   *  of that day is included. When either bound is set the list is ordered
+   *  newest-registration-first (Activity Monitor "Registered on" date-range filter). */
+  registeredTo?: string;
 }
 
 // ── Dashboard derived from teacher/list totalCount ───────────────────────────

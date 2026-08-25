@@ -47,6 +47,35 @@
           <option value="ExpiringSoon">Expiring soon</option>
           <option value="Expired">Expired</option>
         </select>
+
+        <div class="registered-range" role="group" aria-label="Filter by registration date">
+          <span class="range-label">Registered</span>
+          <input
+            type="date"
+            class="form-control filter-date"
+            aria-label="Registered from"
+            [max]="registeredToControl.value || todayIso"
+            [formControl]="registeredFromControl"
+          />
+          <span class="range-sep">→</span>
+          <input
+            type="date"
+            class="form-control filter-date"
+            aria-label="Registered to"
+            [min]="registeredFromControl.value || null"
+            [max]="todayIso"
+            [formControl]="registeredToControl"
+          />
+          @if (hasRegisteredRange()) {
+            <button
+              type="button"
+              class="btn btn-sm btn-link range-clear"
+              (click)="clearRegisteredRange()"
+            >
+              Clear
+            </button>
+          }
+        </div>
       }
     </div>
 
@@ -72,6 +101,7 @@
               <th>Phone</th>
               <th>Subscription</th>
               <th>Subscribed on</th>
+              <th>Registered</th>
               <th class="text-end">Students</th>
               <th class="text-end">Sessions</th>
               <th class="text-end">Assistants</th>
@@ -106,6 +136,15 @@
                 <td class="text-nowrap">
                   @if (teacher.subscriptionStartDate) {
                     {{ formatDate(teacher.subscriptionStartDate) }}
+                  } @else {
+                    <span class="text-muted">—</span>
+                  }
+                </td>
+                <td class="text-nowrap">
+                  @if (teacher.createdAt) {
+                    <span [title]="formatDateTime(teacher.createdAt)">{{
+                      formatDateTime(teacher.createdAt)
+                    }}</span>
                   } @else {
                     <span class="text-muted">—</span>
                   }
@@ -146,7 +185,7 @@
 
               @if (isExpanded(teacher.id)) {
                 <tr class="assistants-row">
-                  <td colspan="10">
+                  <td colspan="11">
                     @if (assistantsLoading().has(teacher.id)) {
                       <div class="list-footer">
                         <span class="spinner-sm"></span> Loading assistants…

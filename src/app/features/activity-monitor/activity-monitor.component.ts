@@ -53,6 +53,15 @@ export class ActivityMonitorComponent implements OnInit {
    *  so "Active" = currently subscribed — this is the "subscribed teachers" filter. */
   protected readonly subscriptionFilter = new FormControl<string>('', { nonNullable: true });
 
+  /** REGISTRATION date-range filter (yyyy-MM-dd). '' = unbounded on that side. Both
+   *  bounds are inclusive server-side (the "to" day is fully covered). Only applied on
+   *  the "All teachers" tab. */
+  protected readonly registeredFromControl = new FormControl<string>('', { nonNullable: true });
+  protected readonly registeredToControl = new FormControl<string>('', { nonNullable: true });
+
+  /** Today as yyyy-MM-dd — caps both date inputs so no future registration date is picked. */
+  protected readonly todayIso = new Date().toLocaleDateString('en-CA');
+
   protected readonly timeAgo = timeAgo;
   protected readonly formatDateTime = formatDateTime;
   protected readonly formatDate = formatDate;
@@ -74,6 +83,11 @@ export class ActivityMonitorComponent implements OnInit {
         subscriptionStatus:
           this.activeTab() === 'all' ? this.subscriptionFilter.value || undefined : undefined,
         subscribedWithinDays: this.activeTab() === 'new' ? NEWLY_SUBSCRIBED_DAYS : undefined,
+        // Registration date-range filter is an "All teachers" concern only.
+        registeredFrom:
+          this.activeTab() === 'all' ? this.registeredFromControl.value || undefined : undefined,
+        registeredTo:
+          this.activeTab() === 'all' ? this.registeredToControl.value || undefined : undefined,
       }),
   );
 
@@ -99,6 +113,25 @@ export class ActivityMonitorComponent implements OnInit {
     this.subscriptionFilter.valueChanges
       .pipe(distinctUntilChanged())
       .subscribe(() => this.store.reset());
+    this.registeredFromControl.valueChanges
+      .pipe(distinctUntilChanged())
+      .subscribe(() => this.store.reset());
+    this.registeredToControl.valueChanges
+      .pipe(distinctUntilChanged())
+      .subscribe(() => this.store.reset());
+  }
+
+  /** Clears both registration-date bounds and reloads once (suppress the per-control
+   *  change events so we don't reset the list twice). */
+  protected clearRegisteredRange(): void {
+    this.registeredFromControl.setValue('', { emitEvent: false });
+    this.registeredToControl.setValue('', { emitEvent: false });
+    this.store.reset();
+  }
+
+  /** True when either registration-date bound is set — drives the "Clear" button. */
+  protected hasRegisteredRange(): boolean {
+    return !!(this.registeredFromControl.value || this.registeredToControl.value);
   }
 
   protected setTab(tab: 'all' | 'new'): void {
