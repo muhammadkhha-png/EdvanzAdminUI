@@ -24,13 +24,6 @@ import { TeacherLookupItem } from '../../core/models/teacher.model';
 
 const DEFAULT_PAGE_SIZE = 10;
 
-/**
- * Mirrors the backend `ForceChangePasswordDto` complexity rule: min 8 chars,
- * at least one lowercase, one uppercase, one digit, one special character.
- * Identical pattern to teacher-list.component.ts — same backend endpoint.
- */
-const PASSWORD_COMPLEXITY_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).+$/;
-
 /** Group-level validator: newPassword and confirmPassword must match. */
 function passwordsMatchValidator(group: AbstractControl): ValidationErrors | null {
   const newPassword = group.get('newPassword')?.value;
@@ -90,10 +83,9 @@ export class AssistantListComponent implements OnInit {
   protected readonly passwordSubmitting = signal(false);
   protected readonly passwordForm = this.fb.nonNullable.group(
     {
-      newPassword: [
-        '',
-        [Validators.required, Validators.minLength(8), Validators.pattern(PASSWORD_COMPLEXITY_PATTERN)],
-      ],
+      // Only a minimum length is enforced — no uppercase/digit/special-character
+      // requirement (the backend accepts any 8+ char password).
+      newPassword: ['', [Validators.required, Validators.minLength(8)]],
       confirmPassword: ['', [Validators.required]],
     },
     { validators: passwordsMatchValidator },

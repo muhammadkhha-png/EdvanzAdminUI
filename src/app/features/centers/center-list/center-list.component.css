@@ -10,3 +10,35 @@
   border: 1px solid var(--edvanz-border, #e5e7eb);
   border-radius: 14px;
 }
+.pw-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 1085;
+}
+.pw-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  border-radius: 14px;
+  padding: 1.5rem;
+  width: min(440px, 92vw);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+  z-index: 1086;
+}
+.pw-title {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+}
+.pw-message {
+  color: var(--edvanz-muted, #6b7280);
+  margin-bottom: 1.25rem;
+}
+.pw-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}

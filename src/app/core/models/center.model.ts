@@ -18,6 +18,14 @@ export interface CenterListItem {
   fullTeacherCount: number;
   managerialTeacherCount: number;
   createdAt: string;
+  /** The center's login User id — passed to force-change-password when resetting the center's password. */
+  userId: number;
+  /** The username the center signs in with. */
+  username: string | null;
+  /** UTC ISO timestamp of the center's most recent login, or null if it has never logged in. */
+  lastLoginAt: string | null;
+  /** UTC ISO "last seen" (most recent authenticated request), or null until the account's first request. */
+  lastActivityAt: string | null;
 }
 
 // ── Create center (POST /api/admin/centers) ──────────────────────────────────

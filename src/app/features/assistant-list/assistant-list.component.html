@@ -150,10 +150,7 @@
         @if (isInvalid('newPassword') && passwordForm.controls.newPassword.errors?.['required']) {
           <div class="invalid-feedback d-block">New password is required.</div>
         } @else if (isInvalid('newPassword')) {
-          <div class="invalid-feedback d-block">
-            Min 8 characters, with at least one uppercase, one lowercase, one number,
-            and one special character.
-          </div>
+          <div class="invalid-feedback d-block">Password must be at least 8 characters.</div>
         }
       </div>
 

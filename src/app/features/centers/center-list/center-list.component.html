@@ -12,7 +12,7 @@
       <input
         type="search"
         class="form-control"
-        placeholder="Search by name or code…"
+        placeholder="Search by name, code or username…"
         [formControl]="searchControl"
       />
     </div>
@@ -31,12 +31,15 @@
             <thead>
               <tr>
                 <th>Name</th>
+                <th>Username</th>
                 <th>Code</th>
                 <th class="text-end">Full teachers</th>
                 <th class="text-end">Managerial teachers</th>
                 <th class="text-end">Total teachers</th>
                 <th class="text-end" title="Set and managed by the center — not editable from this portal">Revenue share</th>
                 <th>Status</th>
+                <th>Last login</th>
+                <th>Last activity</th>
                 <th class="text-end">Actions</th>
               </tr>
             </thead>
@@ -44,6 +47,7 @@
               @for (center of filteredCenters(); track center.centerId) {
                 <tr>
                   <td class="fw-medium">{{ center.name }}</td>
+                  <td class="text-muted">{{ center.username ?? '—' }}</td>
                   <td class="text-muted font-monospace">{{ center.centerCode }}</td>
                   <td class="text-end">{{ center.fullTeacherCount }}</td>
                   <td class="text-end">{{ center.managerialTeacherCount }}</td>
@@ -57,6 +61,20 @@
                     >
                       {{ center.accountStatus }}
                     </span>
+                  </td>
+                  <td class="text-nowrap">
+                    @if (center.lastLoginAt) {
+                      <span [title]="formatDateTime(center.lastLoginAt)">{{ timeAgo(center.lastLoginAt) }}</span>
+                    } @else {
+                      <span class="text-muted">Never</span>
+                    }
+                  </td>
+                  <td class="text-nowrap">
+                    @if (center.lastActivityAt) {
+                      <span [title]="formatDateTime(center.lastActivityAt)">{{ timeAgo(center.lastActivityAt) }}</span>
+                    } @else {
+                      <span class="text-muted">—</span>
+                    }
                   </td>
                   <td class="text-end text-nowrap">
                     <a
@@ -85,6 +103,14 @@
                         {{ isBusy(center.centerId) ? 'Working…' : 'Activate' }}
                       </button>
                     }
+
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-dark ms-1"
+                      (click)="openPasswordReset(center)"
+                    >
+                      Reset Password
+                    </button>
                   </td>
                 </tr>
               }
@@ -98,3 +124,68 @@
     }
   </div>
 </div>
+
+@if (passwordResetTarget(); as target) {
+  <div class="pw-backdrop" (click)="closePasswordReset()"></div>
+  <div class="pw-modal" role="dialog" aria-modal="true">
+    <h5 class="pw-title">Reset password — {{ target.name }}</h5>
+    <p class="pw-message">
+      Sets a new password with no old-password check. {{ target.name }} will be
+      signed out of every active session immediately.
+    </p>
+
+    <form [formGroup]="passwordForm" (ngSubmit)="submitPasswordReset()" novalidate>
+      <div class="mb-3">
+        <label class="form-label" for="newPassword">New password</label>
+        <input
+          id="newPassword"
+          type="password"
+          class="form-control"
+          formControlName="newPassword"
+          autocomplete="new-password"
+          [class.is-invalid]="isInvalid('newPassword')"
+        />
+        @if (isInvalid('newPassword') && passwordForm.controls.newPassword.errors?.['required']) {
+          <div class="invalid-feedback d-block">New password is required.</div>
+        } @else if (isInvalid('newPassword')) {
+          <div class="invalid-feedback d-block">Password must be at least 8 characters.</div>
+        }
+      </div>
+
+      <div class="mb-2">
+        <label class="form-label" for="confirmPassword">Confirm password</label>
+        <input
+          id="confirmPassword"
+          type="password"
+          class="form-control"
+          formControlName="confirmPassword"
+          autocomplete="new-password"
+          [class.is-invalid]="isConfirmInvalid()"
+        />
+        @if (isConfirmInvalid() && passwordForm.controls.confirmPassword.errors?.['required']) {
+          <div class="invalid-feedback d-block">Please confirm the new password.</div>
+        } @else if (isConfirmInvalid()) {
+          <div class="invalid-feedback d-block">Passwords do not match.</div>
+        }
+      </div>
+
+      <div class="pw-actions">
+        <button
+          type="button"
+          class="btn btn-outline-secondary"
+          [disabled]="passwordSubmitting()"
+          (click)="closePasswordReset()"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          class="btn btn-danger"
+          [disabled]="passwordSubmitting()"
+        >
+          {{ passwordSubmitting() ? 'Resetting…' : 'Reset password' }}
+        </button>
+      </div>
+    </form>
+  </div>
+}
