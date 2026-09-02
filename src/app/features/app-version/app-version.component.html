@@ -1,0 +1,134 @@
+<div class="page-header">
+  <div>
+    <h2 class="h4 mb-1">App Version / Update Gate</h2>
+    <p class="text-muted mb-0">
+      Control the mobile app's forced and optional update thresholds for each platform.
+    </p>
+  </div>
+</div>
+
+<div class="alert alert-info update-help" role="note">
+  <strong>How this works:</strong>
+  Users below the <em>Min supported build</em> are <strong>forced to update</strong> (the app
+  blocks them until they do). Users between <em>Min supported build</em> and <em>Latest build</em>
+  see an <strong>optional</strong> update prompt they can dismiss. Users on the latest build see
+  nothing.
+</div>
+
+@if (loading()) {
+  <div class="card">
+    <div class="card-body">
+      <div class="list-footer"><span class="spinner-sm"></span> Loading…</div>
+    </div>
+  </div>
+} @else if (loadError()) {
+  <div class="card">
+    <div class="card-body text-center py-5">
+      <p class="text-muted mb-3">Could not load the app version settings.</p>
+      <button type="button" class="btn btn-outline-primary" (click)="load()">Retry</button>
+    </div>
+  </div>
+} @else {
+  <form [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <div class="platform-grid">
+      @for (p of platforms; track p.key) {
+        <div class="card platform-card" [formGroupName]="p.key">
+          <div class="card-body">
+            <h3 class="platform-title">
+              <span class="platform-icon" aria-hidden="true">{{ p.icon }}</span>
+              {{ p.label }}
+            </h3>
+
+            <div class="row g-3">
+              <div class="col-sm-6">
+                <label class="form-label" [attr.for]="p.key + '-minBuild'">
+                  Min supported build *
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  class="form-control"
+                  [id]="p.key + '-minBuild'"
+                  formControlName="minSupportedBuild"
+                  [class.is-invalid]="invalid(p.key, 'minSupportedBuild')"
+                />
+                @if (invalid(p.key, 'minSupportedBuild')) {
+                  <div class="invalid-feedback">
+                    Enter a non-negative whole number.
+                  </div>
+                }
+              </div>
+
+              <div class="col-sm-6">
+                <label class="form-label" [attr.for]="p.key + '-latestBuild'">
+                  Latest build *
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  class="form-control"
+                  [id]="p.key + '-latestBuild'"
+                  formControlName="latestBuild"
+                  [class.is-invalid]="invalid(p.key, 'latestBuild') || latestBelowMin(p.key)"
+                />
+                @if (invalid(p.key, 'latestBuild')) {
+                  <div class="invalid-feedback">
+                    Enter a non-negative whole number.
+                  </div>
+                } @else if (latestBelowMin(p.key)) {
+                  <div class="invalid-feedback">
+                    Latest build must be greater than or equal to the min supported build.
+                  </div>
+                }
+              </div>
+
+              <div class="col-12">
+                <label class="form-label" [attr.for]="p.key + '-latestVersion'">
+                  Latest version *
+                </label>
+                <input
+                  type="text"
+                  class="form-control"
+                  [id]="p.key + '-latestVersion'"
+                  placeholder="e.g. 2.3.4"
+                  formControlName="latestVersion"
+                  [class.is-invalid]="invalid(p.key, 'latestVersion')"
+                />
+                @if (invalid(p.key, 'latestVersion')) {
+                  <div class="invalid-feedback">Version is required.</div>
+                }
+              </div>
+
+              <div class="col-12">
+                <label class="form-label" [attr.for]="p.key + '-storeUrl'">Store URL *</label>
+                <input
+                  type="url"
+                  class="form-control"
+                  [id]="p.key + '-storeUrl'"
+                  placeholder="https://…"
+                  formControlName="storeUrl"
+                  [class.is-invalid]="invalid(p.key, 'storeUrl')"
+                />
+                @if (invalid(p.key, 'storeUrl')) {
+                  <div class="invalid-feedback">Store URL is required.</div>
+                }
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+
+    <div class="d-flex justify-content-end gap-2 pt-1">
+      <button
+        type="submit"
+        class="btn btn-primary"
+        [disabled]="saving() || form.invalid || form.pristine"
+      >
+        {{ saving() ? 'Saving…' : 'Save changes' }}
+      </button>
+    </div>
+  </form>
+}

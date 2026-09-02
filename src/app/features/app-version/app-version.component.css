@@ -1,0 +1,45 @@
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+.card {
+  border: 1px solid var(--edvanz-border, #e5e7eb);
+  border-radius: 14px;
+}
+
+/* Plain-language explanation of the gate's effect. */
+.update-help {
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+}
+.update-help em {
+  font-style: normal;
+  font-weight: 600;
+}
+
+/* Two platform cards side by side; stack on narrow screens. */
+.platform-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+.platform-card {
+  margin: 0;
+}
+.platform-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0 0 1rem;
+}
+.platform-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+}

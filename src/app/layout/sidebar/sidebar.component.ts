@@ -131,5 +131,6 @@ export class SidebarComponent {
     { label: 'Activity Monitor', icon: '🕒', route: '/activity' },
     { label: 'Students', icon: '🎓', route: '/students' },
     { label: 'Student Accounts', icon: '🪪', route: '/student-accounts' },
+    { label: 'App Version', icon: '📱', route: '/app-version' },
   ];
 }

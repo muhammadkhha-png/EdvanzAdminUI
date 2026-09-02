@@ -104,6 +104,15 @@ export const APP_ROUTES: Routes = [
             './features/teacher-independence-requests/teacher-independence-requests.component'
           ).then((m) => m.TeacherIndependenceRequestsComponent),
       },
+      {
+        path: 'app-version',
+        canActivate: [permissionGuard],
+        data: { breadcrumb: 'App version', roles: ['SuperAdmin'] },
+        loadComponent: () =>
+          import('./features/app-version/app-version.component').then(
+            (m) => m.AppVersionComponent,
+          ),
+      },
     ],
   },
   {
