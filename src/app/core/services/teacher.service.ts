@@ -7,6 +7,7 @@ import { ApiResult } from '../models/api-result.model';
 import { PaginatedResponse } from '../models/paginated-response.model';
 import {
   AdminSetCapacityRequest,
+  BillingStartReconcileResult,
   CapacityAdjustResult,
   CreateTeacherSignUpRequest,
   DashboardSummary,
@@ -179,5 +180,43 @@ export class TeacherService {
     return this.http
       .get<ApiResult<TeacherLookupItem[]>>(`${this.base}/teacher/lookup`)
       .pipe(map((r) => r.data ?? []));
+  }
+
+  // ── Billing start (one-time billing anchor; admin override + re-grant) ──────
+
+  /**
+   * POST /api/admin/payments/billing-start — sets the teacher's billing start
+   * month (first of month, yyyy-MM-dd) and reconciles their period ladders.
+   * Works even when the teacher's one-time self-service set is locked, and
+   * re-locks afterward. ALWAYS call with dryRun=true first and show the
+   * returned summary before the real run.
+   */
+  setBillingStart(
+    teacherId: number,
+    date: string,
+    dryRun: boolean,
+    lang: 'en' | 'ar' = 'en',
+  ): Observable<BillingStartReconcileResult> {
+    const params = new HttpParams()
+      .set('teacherId', teacherId)
+      .set('date', date)
+      .set('dryRun', dryRun);
+    return this.http
+      .post<ApiResult<BillingStartReconcileResult>>(
+        `${this.base}/admin/payments/billing-start`,
+        {},
+        { params, headers: { 'Accept-Language': lang } },
+      )
+      .pipe(map((r) => r.data));
+  }
+
+  /** POST /api/admin/payments/billing-start/allow-change — grants the teacher one more self-service change. */
+  allowBillingStartChange(teacherId: number, lang: 'en' | 'ar' = 'en'): Observable<unknown> {
+    const params = new HttpParams().set('teacherId', teacherId);
+    return this.http.post<ApiResult<unknown>>(
+      `${this.base}/admin/payments/billing-start/allow-change`,
+      {},
+      { params, headers: { 'Accept-Language': lang } },
+    );
   }
 }

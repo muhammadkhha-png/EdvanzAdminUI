@@ -136,6 +136,22 @@ export interface CapacityAdjustResult {
   status: string;
 }
 
+// ── Admin billing start (POST /api/admin/payments/billing-start) ──────────────
+// SuperAdmin sets/overrides a teacher's one-time billing start month and the
+// backend reconciles the ladders (removes never-paid pre-start months, backfills
+// newly-billable ones; paid/manual rows are kept). Always dry-run first — the
+// summary is shown to the admin before the real run.
+export interface BillingStartReconcileResult {
+  teacherId: number;
+  billingStartDate: string;
+  dryRun: boolean;
+  removedPeriods: number;
+  backfilledPeriods: number;
+  keptPaid: number;
+  keptManual: number;
+  studentsAffected: number;
+}
+
 // ── Teacher list query params ─────────────────────────────────────────────────
 export interface TeacherListQuery extends PagedQuery {
   accountStatus?: string;

@@ -9,6 +9,7 @@ import {
 } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import {
+  BillingStartReconcileResult,
   StudentCapacityPackageDto,
   SubjectDto,
   TeacherProfile,
@@ -16,6 +17,7 @@ import {
 } from '../../../core/models/teacher.model';
 import { TeacherService } from '../../../core/services/teacher.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { ConfirmDialogService } from '../../../shared/components/confirm-dialog/confirm-dialog.service';
 
 type UiLang = 'en' | 'ar';
 
@@ -35,6 +37,16 @@ const MSG: Record<UiLang, Record<string, string>> = {
     capacityIncreaseOnly: 'New capacity must be greater than the current capacity.',
     capacityUpdated: 'Capacity updated.',
     langEn: 'English', langAr: 'Arabic',
+    billingStart: 'Billing start',
+    billingNote: 'One-time billing anchor: months before it are never billed to students. Setting it here also re-locks the teacher\'s self-service change.',
+    billingSet: 'Set billing start', billingAllow: 'Allow teacher change',
+    billingPreview: 'Preview', billingPickMonth: 'Pick a month first.',
+    billingConfirmTitle: 'Apply billing start?',
+    billingDone: 'Billing start applied.',
+    billingAllowConfirmTitle: 'Allow change?',
+    billingAllowConfirmMsg: 'The teacher will be able to change their billing start month once more from the app.',
+    billingAllowed: 'The teacher can now change the billing start once.',
+    billingNothing: 'No periods would change.',
   },
   ar: {
     edit: 'تعديل المدرّس', save: 'حفظ التعديلات', saving: 'جارٍ الحفظ…', cancel: 'إلغاء',
@@ -51,6 +63,16 @@ const MSG: Record<UiLang, Record<string, string>> = {
     capacityIncreaseOnly: 'السعة الجديدة يجب أن تكون أكبر من السعة الحالية.',
     capacityUpdated: 'تم تحديث السعة.',
     langEn: 'الإنجليزية', langAr: 'العربية',
+    billingStart: 'بداية الحساب',
+    billingNote: 'نقطة بداية الحساب (تُحدَّد مرة واحدة): الشهور التي قبلها لا تُحسب على الطلاب. التحديد من هنا يعيد قفل تغيير المدرّس الذاتي.',
+    billingSet: 'تحديد بداية الحساب', billingAllow: 'السماح للمدرّس بالتغيير',
+    billingPreview: 'معاينة', billingPickMonth: 'اختر شهرًا أولًا.',
+    billingConfirmTitle: 'تطبيق بداية الحساب؟',
+    billingDone: 'تم تطبيق بداية الحساب.',
+    billingAllowConfirmTitle: 'السماح بالتغيير؟',
+    billingAllowConfirmMsg: 'سيتمكّن المدرّس من تغيير شهر بداية الحساب مرة واحدة إضافية من التطبيق.',
+    billingAllowed: 'أصبح بإمكان المدرّس تغيير بداية الحساب مرة واحدة.',
+    billingNothing: 'لن تتغيّر أي فترات.',
   },
 };
 
@@ -118,6 +140,38 @@ const MSG: Record<UiLang, Record<string, string>> = {
             <div><dt>{{ t('createdAt') }}</dt><dd>{{ current.createdAt | date: 'mediumDate' }}</dd></div>
             <div><dt>{{ t('subscription') }}</dt><dd>{{ current.activeSubscription?.subscriptionStatus || t('none') }}</dd></div>
           </dl>
+
+          <!-- ── Billing start (one-time billing anchor; dry-run-first admin override) ── -->
+          <hr class="my-3" />
+          <dt class="mb-1">{{ t('billingStart') }}</dt>
+          <p class="form-text mb-2">{{ t('billingNote') }}</p>
+          @if (!billingOpen()) {
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <button type="button" class="btn btn-sm btn-outline-primary" (click)="startBillingSet()">
+                {{ t('billingSet') }}
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="allowingChange()"
+                (click)="allowBillingChange()">
+                {{ allowingChange() ? t('saving') : t('billingAllow') }}
+              </button>
+            </div>
+            @if (lastBillingResult(); as applied) {
+              <div class="form-text mt-2">
+                {{ applied.billingStartDate | date: 'MMMM y' }} — {{ billingSummary(applied) }}
+              </div>
+            }
+          } @else {
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <input type="month" class="form-control form-control-sm" style="max-width:180px"
+                [formControl]="billingMonthControl" />
+              <button type="button" class="btn btn-sm btn-primary" [disabled]="billingRunning()"
+                (click)="previewBillingStart()">
+                {{ billingRunning() ? t('saving') : t('billingPreview') }}
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="billingRunning()"
+                (click)="cancelBillingSet()">{{ t('adjustCancel') }}</button>
+            </div>
+          }
         } @else {
           <!-- ── EDIT MODE (profile only — never capacity) ─────────────────── -->
           <form [formGroup]="form" (ngSubmit)="save()" novalidate>
@@ -189,6 +243,7 @@ export class TeacherInfoComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly teacherService = inject(TeacherService);
   private readonly toast = inject(ToastService);
+  private readonly confirm = inject(ConfirmDialogService);
   private readonly fb = inject(FormBuilder);
 
   protected readonly teacher = signal<TeacherProfile | null>(null);
@@ -199,6 +254,11 @@ export class TeacherInfoComponent implements OnInit {
   protected readonly adjusting = signal(false);
   protected readonly savingCapacity = signal(false);
   protected readonly uiLang = signal<UiLang>('en');
+  protected readonly billingOpen = signal(false);
+  protected readonly billingRunning = signal(false);
+  protected readonly allowingChange = signal(false);
+  /** The last APPLIED (non-dry) billing-start run this session — shown under the actions. */
+  protected readonly lastBillingResult = signal<BillingStartReconcileResult | null>(null);
 
   private teacherId!: number;
 
@@ -214,6 +274,9 @@ export class TeacherInfoComponent implements OnInit {
   );
 
   protected readonly capacityControl = this.fb.nonNullable.control(0, [Validators.required]);
+
+  /** yyyy-MM from the native month input; "-01" is appended for the API. */
+  protected readonly billingMonthControl = this.fb.nonNullable.control('');
 
   protected get current(): TeacherProfile {
     return this.teacher()!;
@@ -324,6 +387,77 @@ export class TeacherInfoComponent implements OnInit {
         this.toast.success(this.t('savedOk'));
       },
       error: () => this.saving.set(false),
+    });
+  }
+
+  // ── Billing start (admin override; always dry-run first) ──────────────────
+  protected startBillingSet(): void {
+    this.billingMonthControl.setValue('');
+    this.billingOpen.set(true);
+  }
+
+  protected cancelBillingSet(): void {
+    this.billingOpen.set(false);
+  }
+
+  /** "Will remove N, add M, keep K paid / L set-by-hand — affecting S students." */
+  protected billingSummary(r: BillingStartReconcileResult): string {
+    return this.uiLang() === 'ar'
+      ? `حذف ${r.removedPeriods} شهرًا غير محسوب، إضافة ${r.backfilledPeriods}، الإبقاء على ${r.keptPaid} مدفوعًا و${r.keptManual} محددًا يدويًا — يشمل ${r.studentsAffected} طالبًا.`
+      : `Remove ${r.removedPeriods} unbilled month(s), add ${r.backfilledPeriods}, keep ${r.keptPaid} paid and ${r.keptManual} set-by-hand — affecting ${r.studentsAffected} student(s).`;
+  }
+
+  /** Dry run → confirm with the returned summary → real run. */
+  protected async previewBillingStart(): Promise<void> {
+    const month = this.billingMonthControl.value;
+    if (!month) {
+      this.toast.error(this.t('billingPickMonth'));
+      return;
+    }
+    const date = `${month}-01`;
+    this.billingRunning.set(true);
+
+    this.teacherService.setBillingStart(this.teacherId, date, true, this.uiLang()).subscribe({
+      next: async (preview) => {
+        this.billingRunning.set(false);
+        const ok = await this.confirm.open({
+          title: this.t('billingConfirmTitle'),
+          message: preview.removedPeriods + preview.backfilledPeriods > 0
+            ? this.billingSummary(preview)
+            : `${this.t('billingNothing')} ${this.billingSummary(preview)}`,
+        });
+        if (!ok) return;
+
+        this.billingRunning.set(true);
+        this.teacherService.setBillingStart(this.teacherId, date, false, this.uiLang()).subscribe({
+          next: (applied) => {
+            this.billingRunning.set(false);
+            this.billingOpen.set(false);
+            this.lastBillingResult.set(applied);
+            this.toast.success(`${this.t('billingDone')} ${this.billingSummary(applied)}`);
+          },
+          error: () => this.billingRunning.set(false),
+        });
+      },
+      error: () => this.billingRunning.set(false),
+    });
+  }
+
+  /** Re-grants the teacher's one-time self-service billing-start change. */
+  protected async allowBillingChange(): Promise<void> {
+    const ok = await this.confirm.open({
+      title: this.t('billingAllowConfirmTitle'),
+      message: this.t('billingAllowConfirmMsg'),
+    });
+    if (!ok) return;
+
+    this.allowingChange.set(true);
+    this.teacherService.allowBillingStartChange(this.teacherId, this.uiLang()).subscribe({
+      next: () => {
+        this.allowingChange.set(false);
+        this.toast.success(this.t('billingAllowed'));
+      },
+      error: () => this.allowingChange.set(false),
     });
   }
 
