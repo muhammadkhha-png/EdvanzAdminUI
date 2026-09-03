@@ -62,9 +62,9 @@
                       <span
                         class="badge rounded-pill"
                         [class.text-bg-primary]="teacher.planType === 'Full'"
-                        [class.text-bg-warning]="teacher.planType === 'Managerial'"
+                        [class.text-bg-warning]="teacher.planType !== 'Full'"
                       >
-                        {{ teacher.planType }}
+                        {{ planLabel(teacher.planType) }}
                       </span>
                     } @else {
                       <span class="text-muted">—</span>

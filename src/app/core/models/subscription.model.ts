@@ -1,7 +1,27 @@
 // ── Admin subscription endpoints (/api/admin/subscriptions/*) ────────────────
 
-/** Subscription plan type. Full = students/parents allowed; Managerial = blocked. */
-export type SubscriptionPlanType = 'Full' | 'Managerial';
+/**
+ * Subscription plan type. Full = students/parents allowed; Managerial = blocked;
+ * ManagerialPlus ("Managerial + Parents") = Managerial rules but the public parent
+ * follow-up page stays available.
+ */
+export type SubscriptionPlanType = 'Full' | 'Managerial' | 'ManagerialPlus';
+
+/** Display label for a plan — the wire value is never shown raw. Accepts any
+ * string so loosely-typed rows (e.g. TeacherListItem.planType?: string) can
+ * pass through; unknown values fall back to the raw string. */
+export function planTypeLabel(planType: string | null | undefined): string {
+  switch (planType) {
+    case 'ManagerialPlus':
+      return 'Managerial + Parents';
+    case 'Managerial':
+      return 'Managerial';
+    case 'Full':
+      return 'Full';
+    default:
+      return planType ?? '—';
+  }
+}
 
 export interface CurrentSubscriptionDto {
   id: number;
@@ -24,9 +44,12 @@ export interface AdminActivateRequest {
 
 /**
  * POST /api/admin/subscriptions/activate-managerial
- * Activates a MANAGERIAL subscription — no student or parent account may be linked
- * to the teacher while it is active. `removeExistingLinks` true also severs any
- * students/parents already linked; false keeps them (only new links are blocked).
+ * AND /api/admin/subscriptions/activate-managerial-plus (same body shape).
+ * Activates a MANAGERIAL (or Managerial + Parents) subscription — no student or
+ * parent account may be linked to the teacher while it is active (the -plus route
+ * additionally keeps the public parent follow-up page open). `removeExistingLinks`
+ * true also severs any students/parents already linked; false keeps them (only new
+ * links are blocked). It never touches parent-portal follow-up grants.
  */
 export interface AdminActivateManagerialRequest {
   teacherId: number;

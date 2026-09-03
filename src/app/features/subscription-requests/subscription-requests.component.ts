@@ -1,7 +1,10 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
-import { AdminSubscriptionRequestQueueItem } from '../../core/models/subscription.model';
+import {
+  AdminSubscriptionRequestQueueItem,
+  planTypeLabel,
+} from '../../core/models/subscription.model';
 import { SubscriptionService } from '../../core/services/subscription.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog/confirm-dialog.service';
@@ -40,6 +43,9 @@ export class SubscriptionRequestsComponent implements OnInit {
   private readonly confirm = inject(ConfirmDialogService);
   private readonly toast = inject(ToastService);
 
+  /** Template-visible plan display label — the wire value is never shown raw. */
+  protected readonly planLabel = planTypeLabel;
+
   protected readonly reasonMax = REJECTION_REASON_MAX;
 
   /** Infinite-scroll list state: accumulates pages, appends on scroll. */
@@ -69,9 +75,9 @@ export class SubscriptionRequestsComponent implements OnInit {
     item: AdminSubscriptionRequestQueueItem,
   ): Promise<void> {
     const plan =
-      item.planType === 'Managerial'
-        ? 'a Managerial subscription'
-        : `a Full subscription (capacity ${item.requestedStudents} students)`;
+      item.planType === 'Full'
+        ? `a Full subscription (capacity ${item.requestedStudents} students)`
+        : `a ${planTypeLabel(item.planType)} subscription`;
     const ok = await this.confirm.open({
       title: 'Approve subscription request',
       message: `Activate ${plan} for ${item.teacherName} (${item.teacherCode})? Payment (${item.computedAmountEGP} EGP) is coordinated separately — approving only activates the subscription.`,

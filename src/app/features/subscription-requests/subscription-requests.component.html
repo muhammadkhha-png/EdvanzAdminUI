@@ -45,9 +45,9 @@
                     <span
                       class="badge rounded-pill"
                       [class.text-bg-primary]="req.planType === 'Full'"
-                      [class.text-bg-warning]="req.planType === 'Managerial'"
+                      [class.text-bg-warning]="req.planType !== 'Full'"
                     >
-                      {{ req.planType }}
+                      {{ planLabel(req.planType) }}
                     </span>
                   </td>
                   <td class="text-end">{{ req.requestedStudents }}</td>
@@ -106,7 +106,7 @@
   <div class="rj-modal" role="dialog" aria-modal="true">
     <h5 class="rj-title">Reject request — {{ target.teacherName }}</h5>
     <p class="rj-message">
-      Rejecting the {{ target.planType }} subscription request from
+      Rejecting the {{ planLabel(target.planType) }} subscription request from
       {{ target.teacherName }} ({{ target.teacherCode }}). The teacher sees the
       reason below, so keep it clear.
     </p>

@@ -10,6 +10,7 @@ import {
 import { RouterLink } from '@angular/router';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { TeacherListItem } from '../../../core/models/teacher.model';
+import { planTypeLabel } from '../../../core/models/subscription.model';
 import { ConfirmDialogService } from '../../../shared/components/confirm-dialog/confirm-dialog.service';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 import { InfiniteScrollDirective } from '../../../shared/directives/infinite-scroll.directive';
@@ -58,6 +59,9 @@ export class TeacherListComponent implements OnInit {
 
   /** Timestamp formatters exposed to the template (last-login column). */
   protected readonly timeAgo = timeAgo;
+
+  /** Plan display label exposed to the template — never shows the raw wire value. */
+  protected readonly planLabel = planTypeLabel;
   protected readonly formatDateTime = formatDateTime;
 
   /** Infinite-scroll list state: accumulates pages, appends on scroll. */

@@ -21,6 +21,10 @@
         <input type="number" min="0" class="form-control" formControlName="managerialTeacherSlotPriceEGP" />
       </div>
       <div class="col-sm-4">
+        <label class="form-label">Managerial + Parents teacher slot (EGP)</label>
+        <input type="number" min="0" class="form-control" formControlName="managerialPlusTeacherSlotPriceEGP" />
+      </div>
+      <div class="col-sm-4">
         <button type="submit" class="btn btn-primary" [disabled]="pricingForm.invalid || pricingSaving()">
           {{ pricingSaving() ? 'Saving…' : 'Save pricing' }}
         </button>
@@ -47,6 +51,7 @@
                 <th>Center</th>
                 <th class="text-end">Full slots</th>
                 <th class="text-end">Managerial slots</th>
+                <th class="text-end">Mgr + Parents slots</th>
                 <th class="text-end">Capacity (total)</th>
                 <th class="text-end">Amount (EGP)</th>
                 <th>Submitted</th>
@@ -63,6 +68,7 @@
                   </td>
                   <td class="text-end">{{ req.fullTeacherSlots }}</td>
                   <td class="text-end">{{ req.managerialTeacherSlots }}</td>
+                  <td class="text-end">{{ req.managerialPlusTeacherSlots }}</td>
                   <td class="text-end">{{ req.studentCapacityTotal }}</td>
                   <td class="text-end fw-medium">{{ req.computedAmountEGP | number: '1.0-2' }}</td>
                   <td class="text-nowrap">{{ req.requestedAt | date: 'medium' }}</td>
@@ -104,6 +110,10 @@
           <label class="form-label">Managerial teacher slots</label>
           <input type="number" min="0" class="form-control" formControlName="managerialTeacherSlots" />
         </div>
+        <div class="col-sm-6">
+          <label class="form-label">Managerial + Parents teacher slots</label>
+          <input type="number" min="0" class="form-control" formControlName="managerialPlusTeacherSlots" />
+        </div>
         <div class="col-sm-4">
           <label class="form-label">Capacity (total)</label>
           <input type="number" min="0" class="form-control" formControlName="studentCapacityTotal" />
@@ -115,6 +125,10 @@
         <div class="col-sm-4">
           <label class="form-label">Under Managerial</label>
           <input type="number" min="0" class="form-control" formControlName="studentCapacityUnderManagerial" />
+        </div>
+        <div class="col-sm-4">
+          <label class="form-label">Under Managerial + Parents</label>
+          <input type="number" min="0" class="form-control" formControlName="studentCapacityUnderManagerialPlus" />
         </div>
         <div class="col-sm-6">
           <label class="form-label">Duration (days)</label>
@@ -128,7 +142,7 @@
 
       @if (approveMismatch()) {
         <div class="mismatch-warning mt-2">
-          ⚠ Under-Full + Under-Managerial ({{ approveUnderSum() }}) doesn't equal the total ({{ approveForm.controls.studentCapacityTotal.value }}). You can still approve.
+          ⚠ The per-plan student capacities ({{ approveUnderSum() }}) don't add up to the total ({{ approveForm.controls.studentCapacityTotal.value }}). You can still approve.
         </div>
       }
 

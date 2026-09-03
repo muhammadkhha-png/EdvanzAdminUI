@@ -50,6 +50,10 @@ const REJECTION_REASON_MAX = 500;
                 <span class="fw-semibold">{{ sub.usedManagerialTeachers }} / {{ sub.managerialTeacherSlots }}</span>
               </div>
               <div class="summary-row">
+                <span class="label">Managerial + Parents teacher slots</span>
+                <span class="fw-semibold">{{ sub.usedManagerialPlusTeachers }} / {{ sub.managerialPlusTeacherSlots }}</span>
+              </div>
+              <div class="summary-row">
                 <span class="label">Student capacity (total)</span>
                 <span class="fw-semibold">{{ sub.usedStudentsTotal }} / {{ sub.studentCapacityTotal }}</span>
               </div>
@@ -60,6 +64,10 @@ const REJECTION_REASON_MAX = 500;
               <div class="summary-row">
                 <span class="label">Student capacity — under Managerial</span>
                 <span class="fw-semibold">{{ sub.studentCapacityUnderManagerial }}</span>
+              </div>
+              <div class="summary-row">
+                <span class="label">Student capacity — under Managerial + Parents</span>
+                <span class="fw-semibold">{{ sub.studentCapacityUnderManagerialPlus }}</span>
               </div>
               @if (sub.endDate) {
                 <div class="summary-row">
@@ -102,6 +110,10 @@ const REJECTION_REASON_MAX = 500;
               <label class="form-label">Managerial teacher slots</label>
               <input type="number" min="0" class="form-control" formControlName="managerialTeacherSlots" />
             </div>
+            <div class="col-sm-6">
+              <label class="form-label">Managerial + Parents teacher slots</label>
+              <input type="number" min="0" class="form-control" formControlName="managerialPlusTeacherSlots" />
+            </div>
             <div class="col-sm-4">
               <label class="form-label">Student capacity (total)</label>
               <input type="number" min="0" class="form-control" formControlName="studentCapacityTotal" />
@@ -113,6 +125,10 @@ const REJECTION_REASON_MAX = 500;
             <div class="col-sm-4">
               <label class="form-label">Under Managerial</label>
               <input type="number" min="0" class="form-control" formControlName="studentCapacityUnderManagerial" />
+            </div>
+            <div class="col-sm-4">
+              <label class="form-label">Under Managerial + Parents</label>
+              <input type="number" min="0" class="form-control" formControlName="studentCapacityUnderManagerialPlus" />
             </div>
             <div class="col-sm-6">
               <label class="form-label">Duration (days)</label>
@@ -126,7 +142,7 @@ const REJECTION_REASON_MAX = 500;
 
           @if (activateMismatch()) {
             <div class="mismatch-warning mt-2">
-              ⚠ Under-Full + Under-Managerial ({{ activateUnderSum() }}) doesn't equal the total ({{ activateForm.controls.studentCapacityTotal.value }}). You can still save.
+              ⚠ The per-plan student capacities ({{ activateUnderSum() }}) don't add up to the total ({{ activateForm.controls.studentCapacityTotal.value }}). You can still save.
             </div>
           }
 
@@ -149,6 +165,7 @@ const REJECTION_REASON_MAX = 500;
                 <th>Requested</th>
                 <th class="text-end">Full slots</th>
                 <th class="text-end">Managerial slots</th>
+                <th class="text-end">Mgr + Parents slots</th>
                 <th class="text-end">Capacity (total)</th>
                 <th class="text-end">Amount (EGP)</th>
                 <th>Note</th>
@@ -160,6 +177,7 @@ const REJECTION_REASON_MAX = 500;
                 <td class="text-nowrap">{{ pending.requestedAt | date: 'medium' }}</td>
                 <td class="text-end">{{ pending.fullTeacherSlots }}</td>
                 <td class="text-end">{{ pending.managerialTeacherSlots }}</td>
+                <td class="text-end">{{ pending.managerialPlusTeacherSlots }}</td>
                 <td class="text-end">{{ pending.studentCapacityTotal }}</td>
                 <td class="text-end fw-medium">{{ pending.computedAmountEGP }}</td>
                 <td class="note-cell text-muted">{{ pending.note || '—' }}</td>
@@ -195,6 +213,10 @@ const REJECTION_REASON_MAX = 500;
               <label class="form-label">Managerial teacher slots</label>
               <input type="number" min="0" class="form-control" formControlName="managerialTeacherSlots" />
             </div>
+            <div class="col-sm-6">
+              <label class="form-label">Managerial + Parents teacher slots</label>
+              <input type="number" min="0" class="form-control" formControlName="managerialPlusTeacherSlots" />
+            </div>
             <div class="col-sm-4">
               <label class="form-label">Capacity (total)</label>
               <input type="number" min="0" class="form-control" formControlName="studentCapacityTotal" />
@@ -206,6 +228,10 @@ const REJECTION_REASON_MAX = 500;
             <div class="col-sm-4">
               <label class="form-label">Under Managerial</label>
               <input type="number" min="0" class="form-control" formControlName="studentCapacityUnderManagerial" />
+            </div>
+            <div class="col-sm-4">
+              <label class="form-label">Under Managerial + Parents</label>
+              <input type="number" min="0" class="form-control" formControlName="studentCapacityUnderManagerialPlus" />
             </div>
             <div class="col-sm-6">
               <label class="form-label">Duration (days)</label>
@@ -219,7 +245,7 @@ const REJECTION_REASON_MAX = 500;
 
           @if (approveMismatch()) {
             <div class="mismatch-warning mt-2">
-              ⚠ Under-Full + Under-Managerial ({{ approveUnderSum() }}) doesn't equal the total ({{ approveForm.controls.studentCapacityTotal.value }}). You can still approve.
+              ⚠ The per-plan student capacities ({{ approveUnderSum() }}) don't add up to the total ({{ approveForm.controls.studentCapacityTotal.value }}). You can still approve.
             </div>
           }
 
@@ -363,9 +389,11 @@ export class CenterSubscriptionPanelComponent implements OnInit {
   protected readonly activateForm = this.fb.nonNullable.group({
     fullTeacherSlots: [0, [Validators.required, Validators.min(0)]],
     managerialTeacherSlots: [0, [Validators.required, Validators.min(0)]],
+    managerialPlusTeacherSlots: [0, [Validators.required, Validators.min(0)]],
     studentCapacityTotal: [0, [Validators.required, Validators.min(0)]],
     studentCapacityUnderFull: [0, [Validators.required, Validators.min(0)]],
     studentCapacityUnderManagerial: [0, [Validators.required, Validators.min(0)]],
+    studentCapacityUnderManagerialPlus: [0, [Validators.required, Validators.min(0)]],
     durationDays: [DEFAULT_DURATION_DAYS, [Validators.required, Validators.min(1)]],
     note: [''],
   });
@@ -376,9 +404,11 @@ export class CenterSubscriptionPanelComponent implements OnInit {
   protected readonly approveForm = this.fb.nonNullable.group({
     fullTeacherSlots: [0, [Validators.required, Validators.min(0)]],
     managerialTeacherSlots: [0, [Validators.required, Validators.min(0)]],
+    managerialPlusTeacherSlots: [0, [Validators.required, Validators.min(0)]],
     studentCapacityTotal: [0, [Validators.required, Validators.min(0)]],
     studentCapacityUnderFull: [0, [Validators.required, Validators.min(0)]],
     studentCapacityUnderManagerial: [0, [Validators.required, Validators.min(0)]],
+    studentCapacityUnderManagerialPlus: [0, [Validators.required, Validators.min(0)]],
     durationDays: [DEFAULT_DURATION_DAYS, [Validators.required, Validators.min(1)]],
     note: [''],
   });
@@ -403,9 +433,11 @@ export class CenterSubscriptionPanelComponent implements OnInit {
           this.activateForm.patchValue({
             fullTeacherSlots: sub.fullTeacherSlots,
             managerialTeacherSlots: sub.managerialTeacherSlots,
+            managerialPlusTeacherSlots: sub.managerialPlusTeacherSlots,
             studentCapacityTotal: sub.studentCapacityTotal,
             studentCapacityUnderFull: sub.studentCapacityUnderFull,
             studentCapacityUnderManagerial: sub.studentCapacityUnderManagerial,
+            studentCapacityUnderManagerialPlus: sub.studentCapacityUnderManagerialPlus,
           });
         }
       },
@@ -417,7 +449,11 @@ export class CenterSubscriptionPanelComponent implements OnInit {
 
   protected activateUnderSum(): number {
     const v = this.activateForm.getRawValue();
-    return v.studentCapacityUnderFull + v.studentCapacityUnderManagerial;
+    return (
+      v.studentCapacityUnderFull +
+      v.studentCapacityUnderManagerial +
+      v.studentCapacityUnderManagerialPlus
+    );
   }
 
   protected activateMismatch(): boolean {
@@ -437,9 +473,11 @@ export class CenterSubscriptionPanelComponent implements OnInit {
       centerId: this.centerId,
       fullTeacherSlots: raw.fullTeacherSlots,
       managerialTeacherSlots: raw.managerialTeacherSlots,
+      managerialPlusTeacherSlots: raw.managerialPlusTeacherSlots,
       studentCapacityTotal: raw.studentCapacityTotal,
       studentCapacityUnderFull: raw.studentCapacityUnderFull,
       studentCapacityUnderManagerial: raw.studentCapacityUnderManagerial,
+      studentCapacityUnderManagerialPlus: raw.studentCapacityUnderManagerialPlus,
       durationDays: raw.durationDays,
       note: raw.note.trim() || undefined,
     };
@@ -459,7 +497,11 @@ export class CenterSubscriptionPanelComponent implements OnInit {
 
   protected approveUnderSum(): number {
     const v = this.approveForm.getRawValue();
-    return v.studentCapacityUnderFull + v.studentCapacityUnderManagerial;
+    return (
+      v.studentCapacityUnderFull +
+      v.studentCapacityUnderManagerial +
+      v.studentCapacityUnderManagerialPlus
+    );
   }
 
   protected approveMismatch(): boolean {
@@ -473,9 +515,11 @@ export class CenterSubscriptionPanelComponent implements OnInit {
     this.approveForm.setValue({
       fullTeacherSlots: pending.fullTeacherSlots,
       managerialTeacherSlots: pending.managerialTeacherSlots,
+      managerialPlusTeacherSlots: pending.managerialPlusTeacherSlots,
       studentCapacityTotal: pending.studentCapacityTotal,
       studentCapacityUnderFull: pending.studentCapacityUnderFull,
       studentCapacityUnderManagerial: pending.studentCapacityUnderManagerial,
+      studentCapacityUnderManagerialPlus: pending.studentCapacityUnderManagerialPlus,
       durationDays: DEFAULT_DURATION_DAYS,
       note: '',
     });
@@ -508,9 +552,11 @@ export class CenterSubscriptionPanelComponent implements OnInit {
     const body: ApproveCenterSubscriptionRequestRequest = {
       fullTeacherSlots: raw.fullTeacherSlots,
       managerialTeacherSlots: raw.managerialTeacherSlots,
+      managerialPlusTeacherSlots: raw.managerialPlusTeacherSlots,
       studentCapacityTotal: raw.studentCapacityTotal,
       studentCapacityUnderFull: raw.studentCapacityUnderFull,
       studentCapacityUnderManagerial: raw.studentCapacityUnderManagerial,
+      studentCapacityUnderManagerialPlus: raw.studentCapacityUnderManagerialPlus,
       durationDays: raw.durationDays,
       note: raw.note.trim() || undefined,
     };

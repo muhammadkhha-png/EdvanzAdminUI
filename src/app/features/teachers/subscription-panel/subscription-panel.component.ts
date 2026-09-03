@@ -6,7 +6,11 @@ import {
   Validators,
 } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { CurrentSubscriptionDto } from '../../../core/models/subscription.model';
+import {
+  CurrentSubscriptionDto,
+  SubscriptionPlanType,
+  planTypeLabel,
+} from '../../../core/models/subscription.model';
 import { TeacherSubscriptionDto } from '../../../core/models/teacher.model';
 import { SubscriptionService } from '../../../core/services/subscription.service';
 import { ToastService } from '../../../core/services/toast.service';
@@ -18,12 +22,14 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog/
  * subscription from the server, so `remainingDays`, `status` and `planType`
  * are never recomputed client-side — the backend stays the single source of truth.
  *
- * Supports the two subscription TYPES:
- *   - Full       — students & parents can be linked.
- *   - Managerial — no students or parents can be linked while active. When
- *                  activating/converting to Managerial the admin chooses whether to
- *                  also remove students/parents already linked (removeExistingLinks),
- *                  or keep them (only new links are blocked).
+ * Supports the three subscription TYPES:
+ *   - Full            — students & parents can be linked.
+ *   - Managerial      — no students or parents can be linked while active. When
+ *                       activating/converting to Managerial the admin chooses whether
+ *                       to also remove students/parents already linked
+ *                       (removeExistingLinks), or keep them (only new links blocked).
+ *   - ManagerialPlus  — "Managerial + Parents": same account blocks as Managerial,
+ *                       but the public parent follow-up page stays available.
  */
 @Component({
   selector: 'app-subscription-panel',
@@ -40,8 +46,8 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog/
             </div>
             <div class="summary-row">
               <span class="label">Plan</span>
-              <span class="plan-badge" [class.managerial]="isManagerial(sub)">
-                {{ isManagerial(sub) ? 'Managerial' : 'Full' }}
+              <span class="plan-badge" [class.managerial]="isRestricted(sub)">
+                {{ planLabel(sub.planType) }}
               </span>
             </div>
             <div class="summary-row">
@@ -58,9 +64,14 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog/
             </div>
           </div>
 
-          @if (isManagerial(sub) && (sub.subscriptionStatus === 'Active' || sub.subscriptionStatus === 'ExpiringSoon')) {
+          @if (isRestricted(sub) && (sub.subscriptionStatus === 'Active' || sub.subscriptionStatus === 'ExpiringSoon')) {
             <div class="managerial-note">
-              Managerial subscription — students &amp; parents cannot be linked to this teacher.
+              @if (sub.planType === 'ManagerialPlus') {
+                Managerial + Parents subscription — no student accounts can be linked,
+                but the parent follow-up page is available to this teacher.
+              } @else {
+                Managerial subscription — students &amp; parents cannot be linked to this teacher.
+              }
             </div>
           }
         </div>
@@ -76,15 +87,13 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog/
                   <div class="btn-group btn-group-sm w-100" role="group">
                     <input type="radio" class="btn-check" formControlName="planType" value="Full" id="pt-full" />
                     <label class="btn btn-outline-primary" for="pt-full">Full</label>
+                    <input type="radio" class="btn-check" formControlName="planType" value="ManagerialPlus" id="pt-mgr-plus" />
+                    <label class="btn btn-outline-primary" for="pt-mgr-plus">Managerial + Parents</label>
                     <input type="radio" class="btn-check" formControlName="planType" value="Managerial" id="pt-mgr" />
                     <label class="btn btn-outline-primary" for="pt-mgr">Managerial</label>
                   </div>
                   <p class="text-muted small mt-1 mb-0">
-                    @if (activateForm.controls.planType.value === 'Managerial') {
-                      Managerial: no students or parents can be linked to this teacher.
-                    } @else {
-                      Full: students and parents can be linked normally.
-                    }
+                    {{ planHelp(activateForm.controls.planType.value) }}
                   </p>
                 </div>
 
@@ -99,7 +108,7 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog/
                   </div>
                 </div>
 
-                @if (activateForm.controls.planType.value === 'Managerial') {
+                @if (activateForm.controls.planType.value !== 'Full') {
                   <div class="form-check mt-2">
                     <input class="form-check-input" type="checkbox" formControlName="removeExistingLinks" id="rm-links" />
                     <label class="form-check-label" for="rm-links">
@@ -113,7 +122,7 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog/
                 }
 
                 <button type="submit" class="btn btn-success btn-sm mt-2" [disabled]="activateForm.invalid">
-                  {{ activateForm.controls.planType.value === 'Managerial' ? 'Activate managerial' : 'Activate' }}
+                  Activate {{ planLabel(asPlan(activateForm.controls.planType.value)) }}
                 </button>
               </form>
             }
@@ -123,22 +132,20 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog/
                 <h6>Subscription type</h6>
                 <p class="mb-2">
                   Current type:
-                  <span class="plan-badge" [class.managerial]="isManagerial(sub)">
-                    {{ isManagerial(sub) ? 'Managerial' : 'Full' }}
+                  <span class="plan-badge" [class.managerial]="isRestricted(sub)">
+                    {{ planLabel(sub.planType) }}
                   </span>
                 </p>
 
-                @if (isManagerial(sub)) {
+                @if (isRestricted(sub)) {
                   <p class="text-muted small mb-2">
                     Switch back to Full so students &amp; parents can be linked again.
                     The current period is kept. (Previously removed links are not restored automatically.)
                   </p>
-                  <button type="button" class="btn btn-outline-primary btn-sm" (click)="convertToFull()">
-                    Switch to Full
-                  </button>
                 } @else {
                   <p class="text-muted small mb-2">
-                    Switch to Managerial — students &amp; parents can no longer be linked.
+                    Switch to a managerial plan — student &amp; parent accounts can no longer be linked
+                    (Managerial + Parents keeps the parent follow-up page available).
                     The current period is kept.
                   </p>
                   <div class="form-check mb-2">
@@ -147,10 +154,24 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog/
                       Also remove students &amp; parents already linked to this teacher
                     </label>
                   </div>
-                  <button type="button" class="btn btn-outline-warning btn-sm" (click)="convertToManagerial()">
-                    Switch to Managerial
-                  </button>
                 }
+                <div class="d-flex flex-wrap gap-2">
+                  @if (sub.planType !== 'Full' && isRestricted(sub)) {
+                    <button type="button" class="btn btn-outline-primary btn-sm" (click)="convertTo('Full')">
+                      Switch to Full
+                    </button>
+                  }
+                  @if (sub.planType !== 'ManagerialPlus') {
+                    <button type="button" class="btn btn-outline-warning btn-sm" (click)="convertTo('ManagerialPlus')">
+                      Switch to Managerial + Parents
+                    </button>
+                  }
+                  @if (sub.planType !== 'Managerial') {
+                    <button type="button" class="btn btn-outline-warning btn-sm" (click)="convertTo('Managerial')">
+                      Switch to Managerial
+                    </button>
+                  }
+                </div>
               </div>
 
               <form [formGroup]="extendForm" (ngSubmit)="extend()" class="action-card">
@@ -200,15 +221,13 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog/
         <div class="btn-group btn-group-sm w-100" role="group">
           <input type="radio" class="btn-check" formControlName="planType" value="Full" id="pt-full-empty" />
           <label class="btn btn-outline-primary" for="pt-full-empty">Full</label>
+          <input type="radio" class="btn-check" formControlName="planType" value="ManagerialPlus" id="pt-mgr-plus-empty" />
+          <label class="btn btn-outline-primary" for="pt-mgr-plus-empty">Managerial + Parents</label>
           <input type="radio" class="btn-check" formControlName="planType" value="Managerial" id="pt-mgr-empty" />
           <label class="btn btn-outline-primary" for="pt-mgr-empty">Managerial</label>
         </div>
         <p class="text-muted small mt-1 mb-0">
-          @if (activateForm.controls.planType.value === 'Managerial') {
-            Managerial: no students or parents can be linked to this teacher.
-          } @else {
-            Full: students and parents can be linked normally.
-          }
+          {{ planHelp(activateForm.controls.planType.value) }}
         </p>
       </div>
       <div class="row g-2">
@@ -221,7 +240,7 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog/
           <input type="date" class="form-control" formControlName="endDate" />
         </div>
       </div>
-      @if (activateForm.controls.planType.value === 'Managerial') {
+      @if (activateForm.controls.planType.value !== 'Full') {
         <div class="form-check mt-2">
           <input class="form-check-input" type="checkbox" formControlName="removeExistingLinks" id="rm-links-empty" />
           <label class="form-check-label" for="rm-links-empty">
@@ -233,7 +252,7 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog/
         Leave both dates empty to start today for 30 days.
       </p>
       <button type="submit" class="btn btn-success btn-sm" [disabled]="activateForm.invalid">
-        {{ activateForm.controls.planType.value === 'Managerial' ? 'Create managerial subscription' : 'Create subscription' }}
+        Create {{ planLabel(asPlan(activateForm.controls.planType.value)) }} subscription
       </button>
     </form>
   </div>
@@ -331,8 +350,29 @@ export class SubscriptionPanelComponent implements OnInit {
     this.load();
   }
 
-  protected isManagerial(sub: TeacherSubscriptionDto): boolean {
-    return sub.planType === 'Managerial';
+  /** True for BOTH managerial plans — the ones that block student/parent accounts. */
+  protected isRestricted(sub: TeacherSubscriptionDto): boolean {
+    return sub.planType === 'Managerial' || sub.planType === 'ManagerialPlus';
+  }
+
+  protected planLabel(planType: string | null | undefined): string {
+    return planTypeLabel(planType);
+  }
+
+  /** Narrow the form control's string to the plan union for the label helper. */
+  protected asPlan(value: string): SubscriptionPlanType {
+    return value as SubscriptionPlanType;
+  }
+
+  protected planHelp(planType: string): string {
+    switch (planType) {
+      case 'ManagerialPlus':
+        return 'Managerial + Parents: no student accounts can be linked, but the parent follow-up page stays available.';
+      case 'Managerial':
+        return 'Managerial: no students or parents can be linked to this teacher.';
+      default:
+        return 'Full: students and parents can be linked normally.';
+    }
   }
 
   protected activate(): void {
@@ -340,73 +380,81 @@ export class SubscriptionPanelComponent implements OnInit {
       this.activateForm.getRawValue();
     const start = startDate ? this.toUtc(startDate) : null;
     const end = endDate ? this.toUtc(endDate) : null;
+    const plan = this.asPlan(planType);
 
-    if (planType === 'Managerial') {
-      this.subscriptionService
-        .activateManagerial({
-          teacherId: this.teacherId,
-          startDate: start,
-          endDate: end,
-          removeExistingLinks,
-        })
-        .subscribe((sub) => this.applyResult(sub, 'Managerial subscription activated.'));
-    } else {
+    if (plan === 'Full') {
       this.subscriptionService
         .activate({ teacherId: this.teacherId, startDate: start, endDate: end })
         .subscribe((sub) => this.applyResult(sub, 'Subscription activated.'));
+      return;
     }
+
+    const request = {
+      teacherId: this.teacherId,
+      startDate: start,
+      endDate: end,
+      removeExistingLinks,
+    };
+    (plan === 'ManagerialPlus'
+      ? this.subscriptionService.activateManagerialPlus(request)
+      : this.subscriptionService.activateManagerial(request)
+    ).subscribe((sub) =>
+      this.applyResult(sub, `${planTypeLabel(plan)} subscription activated.`),
+    );
   }
 
-  /** Convert an already-active subscription to Managerial, preserving the current period. */
-  protected async convertToManagerial(): Promise<void> {
+  /** Convert an already-active subscription to another plan, preserving the current period. */
+  protected async convertTo(target: SubscriptionPlanType): Promise<void> {
     const sub = this.subscription();
-    if (!sub) return;
+    if (!sub || sub.planType === target) return;
 
-    const remove = this.convertRemoveLinks.value;
+    // Removing links only matters when leaving Full for a plan that blocks accounts.
+    const remove =
+      sub.planType === 'Full' && target !== 'Full'
+        ? this.convertRemoveLinks.value
+        : false;
+
+    const message =
+      target === 'Full'
+        ? 'Switch this teacher back to a full subscription? Students & parents will be able to link again. Previously removed links are not restored automatically.'
+        : target === 'ManagerialPlus'
+          ? remove
+            ? 'This blocks any new student/parent account links AND removes all students & parents already linked. The parent follow-up page stays available. Continue?'
+            : 'This blocks any new student/parent account links (existing ones are kept). The parent follow-up page stays available. Continue?'
+          : remove
+            ? 'This blocks any new student/parent links AND removes all students & parents already linked to this teacher. Continue?'
+            : 'This blocks any new student/parent links for this teacher. Students & parents already linked are kept. Continue?';
+
     const confirmed = await this.confirm.open({
-      title: 'Switch to managerial',
-      message: remove
-        ? 'This blocks any new student/parent links AND removes all students & parents already linked to this teacher. Continue?'
-        : 'This blocks any new student/parent links for this teacher. Students & parents already linked are kept. Continue?',
-      confirmText: 'Switch to managerial',
+      title: `Switch to ${planTypeLabel(target)}`,
+      message,
+      confirmText: `Switch to ${planTypeLabel(target)}`,
       cancelText: 'Keep current',
     });
     if (!confirmed) return;
 
-    this.subscriptionService
-      .activateManagerial({
-        teacherId: this.teacherId,
-        startDate: sub.startDate, // preserve the current period
-        endDate: sub.endDate,
-        removeExistingLinks: remove,
-      })
-      .subscribe((s) => {
-        this.convertRemoveLinks.setValue(false);
-        this.applyResult(s, 'Switched to managerial subscription.');
-      });
-  }
+    const period = {
+      teacherId: this.teacherId,
+      startDate: sub.startDate, // preserve the current period
+      endDate: sub.endDate,
+    };
+    const call =
+      target === 'Full'
+        ? this.subscriptionService.activate(period)
+        : target === 'ManagerialPlus'
+          ? this.subscriptionService.activateManagerialPlus({
+              ...period,
+              removeExistingLinks: remove,
+            })
+          : this.subscriptionService.activateManagerial({
+              ...period,
+              removeExistingLinks: remove,
+            });
 
-  /** Convert an already-active Managerial subscription back to Full, preserving the period. */
-  protected async convertToFull(): Promise<void> {
-    const sub = this.subscription();
-    if (!sub) return;
-
-    const confirmed = await this.confirm.open({
-      title: 'Switch to full',
-      message:
-        'Switch this teacher back to a full subscription? Students & parents will be able to link again. Previously removed links are not restored automatically.',
-      confirmText: 'Switch to full',
-      cancelText: 'Keep managerial',
+    call.subscribe((s) => {
+      this.convertRemoveLinks.setValue(false);
+      this.applyResult(s, `Switched to ${planTypeLabel(target)} subscription.`);
     });
-    if (!confirmed) return;
-
-    this.subscriptionService
-      .activate({
-        teacherId: this.teacherId,
-        startDate: sub.startDate,
-        endDate: sub.endDate,
-      })
-      .subscribe((s) => this.applyResult(s, 'Switched to full subscription.'));
   }
 
   protected extend(): void {

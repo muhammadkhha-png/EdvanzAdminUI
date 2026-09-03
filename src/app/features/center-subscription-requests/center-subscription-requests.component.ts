@@ -47,6 +47,7 @@ export class CenterSubscriptionRequestsComponent implements OnInit {
   protected readonly pricingForm = this.fb.nonNullable.group({
     fullTeacherSlotPriceEGP: [0, [Validators.required, Validators.min(0)]],
     managerialTeacherSlotPriceEGP: [0, [Validators.required, Validators.min(0)]],
+    managerialPlusTeacherSlotPriceEGP: [0, [Validators.required, Validators.min(0)]],
   });
 
   // ── Approve (adjustable quotas + duration) ─────────────────────────────────
@@ -55,9 +56,11 @@ export class CenterSubscriptionRequestsComponent implements OnInit {
   protected readonly approveForm = this.fb.nonNullable.group({
     fullTeacherSlots: [0, [Validators.required, Validators.min(0)]],
     managerialTeacherSlots: [0, [Validators.required, Validators.min(0)]],
+    managerialPlusTeacherSlots: [0, [Validators.required, Validators.min(0)]],
     studentCapacityTotal: [0, [Validators.required, Validators.min(0)]],
     studentCapacityUnderFull: [0, [Validators.required, Validators.min(0)]],
     studentCapacityUnderManagerial: [0, [Validators.required, Validators.min(0)]],
+    studentCapacityUnderManagerialPlus: [0, [Validators.required, Validators.min(0)]],
     durationDays: [DEFAULT_DURATION_DAYS, [Validators.required, Validators.min(1)]],
     note: [''],
   });
@@ -120,7 +123,11 @@ export class CenterSubscriptionRequestsComponent implements OnInit {
 
   protected approveUnderSum(): number {
     const v = this.approveForm.getRawValue();
-    return v.studentCapacityUnderFull + v.studentCapacityUnderManagerial;
+    return (
+      v.studentCapacityUnderFull +
+      v.studentCapacityUnderManagerial +
+      v.studentCapacityUnderManagerialPlus
+    );
   }
 
   protected approveMismatch(): boolean {
@@ -133,9 +140,11 @@ export class CenterSubscriptionRequestsComponent implements OnInit {
     this.approveForm.setValue({
       fullTeacherSlots: item.fullTeacherSlots,
       managerialTeacherSlots: item.managerialTeacherSlots,
+      managerialPlusTeacherSlots: item.managerialPlusTeacherSlots,
       studentCapacityTotal: item.studentCapacityTotal,
       studentCapacityUnderFull: item.studentCapacityUnderFull,
       studentCapacityUnderManagerial: item.studentCapacityUnderManagerial,
+      studentCapacityUnderManagerialPlus: item.studentCapacityUnderManagerialPlus,
       durationDays: DEFAULT_DURATION_DAYS,
       note: '',
     });
@@ -160,9 +169,11 @@ export class CenterSubscriptionRequestsComponent implements OnInit {
     const body: ApproveCenterSubscriptionRequestRequest = {
       fullTeacherSlots: raw.fullTeacherSlots,
       managerialTeacherSlots: raw.managerialTeacherSlots,
+      managerialPlusTeacherSlots: raw.managerialPlusTeacherSlots,
       studentCapacityTotal: raw.studentCapacityTotal,
       studentCapacityUnderFull: raw.studentCapacityUnderFull,
       studentCapacityUnderManagerial: raw.studentCapacityUnderManagerial,
+      studentCapacityUnderManagerialPlus: raw.studentCapacityUnderManagerialPlus,
       durationDays: raw.durationDays,
       note: raw.note.trim() || undefined,
     };

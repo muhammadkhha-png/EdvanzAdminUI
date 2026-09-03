@@ -13,10 +13,12 @@ export interface CenterListItem {
    */
   defaultRevenueSharePercent: number;
   accountStatus: string;
-  /** Total teachers owned by this center (Full + Managerial). */
+  /** Total teachers owned by this center (Full + Managerial + Managerial + Parents). */
   teacherCount: number;
   fullTeacherCount: number;
   managerialTeacherCount: number;
+  /** Managerial + Parents (ManagerialPlus) teachers. Additive — 0 on older servers. */
+  managerialPlusTeacherCount?: number;
   createdAt: string;
   /** The center's login User id — passed to force-change-password when resetting the center's password. */
   userId: number;
@@ -49,8 +51,8 @@ export interface CenterTeacherListItem {
   teacherId: number;
   fullName: string;
   teacherCode: string;
-  /** 'Full' | 'Managerial' | null (not yet subscribed under the center). */
-  planType: 'Full' | 'Managerial' | null;
+  /** 'Full' | 'Managerial' | 'ManagerialPlus' | null (not yet subscribed under the center). */
+  planType: 'Full' | 'Managerial' | 'ManagerialPlus' | null;
   studentCapacity: number;
   /** The rate actually applied to this teacher (override, else the center default). */
   effectiveRevenueSharePercent: number;
@@ -64,14 +66,17 @@ export interface CenterTeacherListItem {
 }
 
 // ── Center subscription / quota package ───────────────────────────────────────
-// FROZEN field names (the 5 quota numbers) — shared by the current-subscription
-// read, the activate body, the approve body, and each request-queue row.
+// FROZEN field names (the 7 quota numbers) — shared by the current-subscription
+// read, the activate body, the approve body, and each request-queue row. The
+// ManagerialPlus pair is additive (defaults 0 server-side).
 export interface CenterQuota {
   fullTeacherSlots: number;
   managerialTeacherSlots: number;
+  managerialPlusTeacherSlots: number;
   studentCapacityTotal: number;
   studentCapacityUnderFull: number;
   studentCapacityUnderManagerial: number;
+  studentCapacityUnderManagerialPlus: number;
 }
 
 // ── Center subscription request queue row ────────────────────────────────────
@@ -98,6 +103,7 @@ export interface CenterSubscription extends CenterQuota {
   daysRemaining?: number;
   usedFullTeachers: number;
   usedManagerialTeachers: number;
+  usedManagerialPlusTeachers: number;
   usedStudentsTotal: number;
   hasPendingRequest: boolean;
   pendingRequest?: CenterSubscriptionRequestQueueItem | null;
@@ -135,6 +141,7 @@ export interface RejectCenterSubscriptionRequestRequest {
 export interface CenterSubscriptionPricing {
   fullTeacherSlotPriceEGP: number;
   managerialTeacherSlotPriceEGP: number;
+  managerialPlusTeacherSlotPriceEGP: number;
 }
 
 // ── Teacher independence requests (a center-owned teacher asking to leave) ────

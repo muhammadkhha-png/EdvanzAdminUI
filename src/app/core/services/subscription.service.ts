@@ -80,6 +80,23 @@ export class SubscriptionService {
   }
 
   /**
+   * POST /api/admin/subscriptions/activate-managerial-plus
+   * Same as activate-managerial but the plan is Managerial + Parents
+   * (ManagerialPlus): student accounts stay blocked while the public parent
+   * follow-up page remains available to the teacher.
+   */
+  activateManagerialPlus(
+    request: AdminActivateManagerialRequest,
+  ): Observable<CurrentSubscriptionDto> {
+    return this.http
+      .post<ApiResult<CurrentSubscriptionDto>>(
+        `${this.base}/admin/subscriptions/activate-managerial-plus`,
+        request,
+      )
+      .pipe(map((r) => r.data));
+  }
+
+  /**
    * POST /api/admin/subscriptions/extend
    * Extends the current subscription end date by N days.
    */

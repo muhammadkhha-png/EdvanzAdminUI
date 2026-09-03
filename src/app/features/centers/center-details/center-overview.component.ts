@@ -6,6 +6,7 @@ import {
   CenterSubscription,
   CenterTeacherListItem,
 } from '../../../core/models/center.model';
+import { planTypeLabel } from '../../../core/models/subscription.model';
 import { CenterService } from '../../../core/services/center.service';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 
@@ -92,9 +93,9 @@ interface UsageBar {
                           <span
                             class="badge rounded-pill"
                             [class.text-bg-primary]="t.planType === 'Full'"
-                            [class.text-bg-warning]="t.planType === 'Managerial'"
+                            [class.text-bg-warning]="t.planType !== 'Full'"
                           >
-                            {{ t.planType }}
+                            {{ planLabel(t.planType) }}
                           </span>
                         } @else {
                           <span class="text-muted">—</span>
@@ -177,22 +178,35 @@ export class CenterOverviewComponent implements OnInit {
   protected readonly teachers = signal<CenterTeacherListItem[]>([]);
   protected readonly subscription = signal<CenterSubscription | null>(null);
 
+  /** Template-visible plan display label — the wire value is never shown raw. */
+  protected readonly planLabel = planTypeLabel;
+
   protected readonly usageBars = computed<UsageBar[]>(() => {
     const sub = this.subscription();
     if (!sub || !sub.hasSubscription) return [];
-    return [
+    const bars: UsageBar[] = [
       { label: 'Full teacher slots', used: sub.usedFullTeachers, total: sub.fullTeacherSlots },
       {
         label: 'Managerial teacher slots',
         used: sub.usedManagerialTeachers,
         total: sub.managerialTeacherSlots,
       },
-      {
-        label: 'Student capacity (total)',
-        used: sub.usedStudentsTotal,
-        total: sub.studentCapacityTotal,
-      },
     ];
+    // Only once the package or roster actually uses the plan — existing
+    // centers' overview stays visually unchanged.
+    if (sub.managerialPlusTeacherSlots > 0 || sub.usedManagerialPlusTeachers > 0) {
+      bars.push({
+        label: 'Managerial + Parents teacher slots',
+        used: sub.usedManagerialPlusTeachers,
+        total: sub.managerialPlusTeacherSlots,
+      });
+    }
+    bars.push({
+      label: 'Student capacity (total)',
+      used: sub.usedStudentsTotal,
+      total: sub.studentCapacityTotal,
+    });
+    return bars;
   });
 
   ngOnInit(): void {

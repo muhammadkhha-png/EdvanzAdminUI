@@ -35,6 +35,7 @@
                 <th>Code</th>
                 <th class="text-end">Full teachers</th>
                 <th class="text-end">Managerial teachers</th>
+                <th class="text-end">Mgr + Parents teachers</th>
                 <th class="text-end">Total teachers</th>
                 <th class="text-end" title="Set and managed by the center — not editable from this portal">Revenue share</th>
                 <th>Status</th>
@@ -51,6 +52,7 @@
                   <td class="text-muted font-monospace">{{ center.centerCode }}</td>
                   <td class="text-end">{{ center.fullTeacherCount }}</td>
                   <td class="text-end">{{ center.managerialTeacherCount }}</td>
+                  <td class="text-end">{{ center.managerialPlusTeacherCount ?? 0 }}</td>
                   <td class="text-end">{{ center.teacherCount }}</td>
                   <td class="text-end">{{ center.defaultRevenueSharePercent }}%</td>
                   <td>
