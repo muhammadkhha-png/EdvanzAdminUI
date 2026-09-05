@@ -23,6 +23,22 @@ export function planTypeLabel(planType: string | null | undefined): string {
   }
 }
 
+/**
+ * Which per-teacher limit a capacity request/adjustment is about. The two are
+ * separate numbers with separate meanings:
+ *   'AccountStudents' → "Students in account"   (Teacher.StudentCapacity — NOT priced)
+ *   'LinkedStudents'  → "Student app accounts"  (the subscription price comes from this)
+ * Absent on pre-rollout servers, where every capacity row is 'AccountStudents'.
+ */
+export type CapacityRequestKind = 'AccountStudents' | 'LinkedStudents';
+
+/** Display label for a capacity kind — the wire value is never shown raw. Accepts
+ * any string so loosely-typed rows pass through; unknown/absent values fall back to
+ * the "students in account" wording, which is what pre-rollout rows always meant. */
+export function capacityKindLabel(kind: string | null | undefined): string {
+  return kind === 'LinkedStudents' ? 'Student app accounts' : 'Students in account';
+}
+
 export interface CurrentSubscriptionDto {
   id: number;
   /** Derived status (Active/ExpiringSoon/Expired) — backend field name is `status`. */
@@ -70,6 +86,19 @@ export interface AdminSetEndDateRequest {
   newEndDate: string;
 }
 
+/**
+ * PUT /api/admin/subscriptions/teachers/{teacherId}/linked-capacity
+ * Sets the teacher's "student app accounts" limit — the number the subscription is
+ * priced on. Unlike the roster-capacity endpoint (AdminSetCapacityRequest, which is
+ * increase-only) this one accepts BOTH increases and decreases: lowering it below the
+ * teacher's current usage is legal, never unlinks a student who is already signed in,
+ * and only blocks NEW links. teacherId travels in the route.
+ */
+export interface AdminSetLinkedCapacityRequest {
+  newCapacity: number;
+  note?: string;
+}
+
 // ── New-subscription request queue (/api/admin/subscriptions/requests/*) ──────
 
 /** Lifecycle status of a teacher's new-subscription request (string enum). */
@@ -81,8 +110,9 @@ export type SubscriptionRequestStatus =
 
 /**
  * One row in the SuperAdmin new-subscription request queue.
- * `computedAmountEGP` is server-computed: Full = requestedStudents × 2.5 EGP,
- * Managerial = flat 500 EGP/month. Only Pending rows are returned (FIFO / oldest first).
+ * `computedAmountEGP` is server-computed and PRICED OFF `requestedLinkedStudents`
+ * (the student app accounts), not `requestedStudents`; Managerial plans are a flat
+ * monthly price. Only Pending rows are returned (FIFO / oldest first).
  */
 export interface AdminSubscriptionRequestQueueItem {
   id: number;
@@ -90,7 +120,11 @@ export interface AdminSubscriptionRequestQueueItem {
   teacherName: string;
   teacherCode: string;
   planType: SubscriptionPlanType;
+  /** "Students in account" the teacher asked for — not what the amount is based on. */
   requestedStudents: number;
+  /** "Student app accounts" the teacher asked for — THE PRICED NUMBER. Absent on
+   *  pre-rollout servers; the queue then renders exactly as it did before. */
+  requestedLinkedStudents?: number;
   computedAmountEGP: number;
   note: string | null;
   requestedAt: string;
@@ -101,6 +135,8 @@ export interface SubscriptionRequestDto {
   id: number;
   planType: SubscriptionPlanType;
   requestedStudents: number;
+  /** "Student app accounts" — the priced number. Absent on pre-rollout servers. */
+  requestedLinkedStudents?: number;
   computedAmountEGP: number;
   status: SubscriptionRequestStatus;
   note: string | null;

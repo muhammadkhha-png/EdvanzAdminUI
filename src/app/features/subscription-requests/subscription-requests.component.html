@@ -25,7 +25,18 @@
               <tr>
                 <th>Teacher</th>
                 <th>Plan</th>
-                <th class="text-end">Students</th>
+                <th
+                  class="text-end"
+                  title="Students in account — every student the teacher adds and manages. The amount is NOT based on this."
+                >
+                  Students
+                </th>
+                <th
+                  class="text-end"
+                  title="Student app accounts — students who sign in to the app. The amount below is calculated on this number."
+                >
+                  App accounts
+                </th>
                 <th class="text-end">Amount (EGP)</th>
                 <th>Submitted</th>
                 <th>Note</th>
@@ -50,9 +61,23 @@
                       {{ planLabel(req.planType) }}
                     </span>
                   </td>
-                  <td class="text-end">{{ req.requestedStudents }}</td>
+                  <td class="text-end text-muted">{{ req.requestedStudents }}</td>
+                  <!-- The priced number. Renders "—" (never NaN) on a pre-rollout
+                       server that does not send requestedLinkedStudents yet. -->
+                  <td class="text-end fw-medium">
+                    @if (req.requestedLinkedStudents != null) {
+                      {{ req.requestedLinkedStudents }}
+                    } @else {
+                      <span class="text-muted">—</span>
+                    }
+                  </td>
                   <td class="text-end fw-medium">
                     {{ req.computedAmountEGP | number: '1.0-2' }}
+                    @if (req.requestedLinkedStudents != null) {
+                      <div class="text-muted small fw-normal text-nowrap">
+                        priced on {{ req.requestedLinkedStudents }} app accounts
+                      </div>
+                    }
                   </td>
                   <td class="text-nowrap">
                     {{ req.requestedAt | date: 'medium' }}

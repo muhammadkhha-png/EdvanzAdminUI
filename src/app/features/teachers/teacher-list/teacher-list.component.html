@@ -34,8 +34,18 @@
                 <th>Username</th>
                 <th>Code</th>
                 <th>Phone</th>
-                <th class="text-end">Students</th>
-                <th class="text-end">Linked</th>
+                <th
+                  class="text-end"
+                  title="Students in account — every student the teacher adds and manages. Not what the subscription is priced on."
+                >
+                  Students
+                </th>
+                <th
+                  class="text-end"
+                  title="Student app accounts — shown as in use / limit. A seat is used once a student account is accepted and linked to a student record. The subscription is priced on the limit."
+                >
+                  App accounts
+                </th>
                 <th>Subscription</th>
                 <th>Type</th>
                 <th>Status</th>
@@ -51,7 +61,41 @@
                   <td class="text-muted font-monospace">{{ teacher.teacherCode }}</td>
                   <td>{{ teacher.phoneNumber ?? '—' }}</td>
                   <td class="text-end">{{ teacher.studentCount ?? 0 }}</td>
-                  <td class="text-end">{{ teacher.linkedStudentCount ?? 0 }}</td>
+                  <!-- Seats in use / limit. Degrades in two steps so no pre-rollout
+                       response can render "undefined / 200" or NaN: without the seat
+                       count it shows the limit alone, and without either field it falls
+                       back to the connected count exactly as this cell did before. -->
+                  <td class="text-end text-nowrap">
+                    @if (teacher.linkedStudentCapacity != null) {
+                      @if (teacher.linkedStudentsUsed != null) {
+                        <span
+                          [class.text-warning-emphasis]="
+                            teacher.linkedStudentsUsed > teacher.linkedStudentCapacity
+                          "
+                          [title]="
+                            teacher.linkedStudentsUsed > teacher.linkedStudentCapacity
+                              ? teacher.linkedStudentsUsed +
+                                ' student app accounts in use against a limit of ' +
+                                teacher.linkedStudentCapacity +
+                                '. Nobody has been disconnected — the teacher just cannot link anyone new until usage drops below the limit.'
+                              : teacher.linkedStudentsUsed +
+                                ' student app accounts in use of ' +
+                                teacher.linkedStudentCapacity +
+                                ' allowed — the subscription is priced on the limit.'
+                          "
+                          >{{ teacher.linkedStudentsUsed }}</span
+                        ><span class="text-muted"> / {{ teacher.linkedStudentCapacity }}</span>
+                      } @else {
+                        <span
+                          class="text-muted"
+                          title="Student app accounts allowed. How many are in use is not reported by this server."
+                          >{{ teacher.linkedStudentCapacity }}</span
+                        >
+                      }
+                    } @else {
+                      {{ teacher.linkedStudentCount ?? 0 }}
+                    }
+                  </td>
                   <td>
                     <app-subscription-status-badge
                       [status]="teacher.subscriptionStatus ?? ''"

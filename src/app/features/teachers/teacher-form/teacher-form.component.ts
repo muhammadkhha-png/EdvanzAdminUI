@@ -39,7 +39,10 @@ const MSG: Record<UiLang, Record<string, string>> = {
     subjectPlaceholder: 'Select a subject',
     customSubject: 'Custom subject (optional)',
     language: 'Teacher app language',
-    capacity: 'Student capacity',
+    capacity: 'Students in account',
+    capacityHint: 'Every student this teacher adds and manages. The subscription is NOT priced on this number.',
+    linkedCapacity: 'Student app accounts',
+    linkedCapacityHint: 'How many of those students may sign in to the app and see their own data. The subscription price is calculated on THIS number, so it can never be more than the students in the account. Leave it empty to match the students in the account.',
     idImage: 'ID image (optional)',
     cancel: 'Cancel',
     create: 'Create teacher',
@@ -58,6 +61,9 @@ const MSG: Record<UiLang, Record<string, string>> = {
     mismatch: 'Passwords do not match.',
     reqSubject: 'Select a subject or enter a custom subject.',
     reqCapacity: 'Enter a valid capacity.',
+    reqLinkedCapacity: 'Enter 0 or a higher whole number, or leave it empty to match the students in the account.',
+    linkedAboveCapacity:
+      'Student app accounts can\'t be more than the students in the account — a student has to exist in the account before they can get an app account. Lower this number, or raise "Students in account".',
   },
   ar: {
     titleNew: 'مدرّس جديد',
@@ -75,7 +81,10 @@ const MSG: Record<UiLang, Record<string, string>> = {
     subjectPlaceholder: 'اختر المادة',
     customSubject: 'مادة مخصّصة (اختياري)',
     language: 'لغة تطبيق المدرّس',
-    capacity: 'سعة الطلاب',
+    capacity: 'الطلاب في الحساب',
+    capacityHint: 'كل الطلاب اللي المدرّس ده هيضيفهم ويتابعهم. سعر الاشتراك مش بيتحسب على الرقم ده.',
+    linkedCapacity: 'حسابات الطلاب على التطبيق',
+    linkedCapacityHint: 'كام واحد من الطلاب دول يقدر يدخل على التطبيق ويشوف بياناته. سعر الاشتراك بيتحسب على الرقم ده، وعشان كده ماينفعش يكون أكتر من الطلاب في الحساب. سيبه فاضي عشان يبقى زي عدد الطلاب في الحساب.',
     idImage: 'صورة البطاقة (اختياري)',
     cancel: 'إلغاء',
     create: 'إنشاء المدرّس',
@@ -94,6 +103,9 @@ const MSG: Record<UiLang, Record<string, string>> = {
     mismatch: 'كلمتا المرور غير متطابقتين.',
     reqSubject: 'اختر مادة أو أدخل مادة مخصّصة.',
     reqCapacity: 'أدخل سعة صحيحة.',
+    reqLinkedCapacity: 'اكتب صفر أو رقم صحيح أكبر، أو سيبه فاضي عشان يبقى زي عدد الطلاب في الحساب.',
+    linkedAboveCapacity:
+      'حسابات الطلاب على التطبيق ماينفعش تكون أكتر من الطلاب في الحساب — لازم الطالب يكون موجود في الحساب الأول عشان ياخد حساب على التطبيق. قلّل الرقم ده، أو زوّد "الطلاب في الحساب".',
   },
 };
 
@@ -227,6 +239,20 @@ const MSG: Record<UiLang, Record<string, string>> = {
                   @if (invalid('studentCapacity')) {
                     <div class="invalid-feedback">{{ t('reqCapacity') }}</div>
                   }
+                  <div class="form-text">{{ t('capacityHint') }}</div>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label" for="linkedStudentCapacity">{{ t('linkedCapacity') }}</label>
+                  <input id="linkedStudentCapacity" type="number" min="0" class="form-control"
+                    formControlName="linkedStudentCapacity"
+                    [class.is-invalid]="linkedCapacityInvalid()" />
+                  @if (linkedCapacityInvalid()) {
+                    <div class="invalid-feedback">
+                      {{ form.hasError('linkedAboveCapacity') ? t('linkedAboveCapacity') : t('reqLinkedCapacity') }}
+                    </div>
+                  }
+                  <div class="form-text">{{ t('linkedCapacityHint') }}</div>
                 </div>
 
                 <div class="col-md-6">
@@ -292,8 +318,19 @@ export class TeacherFormComponent implements OnInit {
       customSubject: [''],
       languagePreference: ['en' as UiLang, [Validators.required]],
       studentCapacity: [500, [Validators.required, Validators.min(1)]],
+      // Deliberately EMPTY by default, not 500: the backend treats a null as "mirror
+      // studentCapacity", so an admin who ignores this field always gets a limit that
+      // agrees with the capacity they actually typed. A hardcoded 500 would silently
+      // diverge the moment they set a different capacity. 0 is valid and meaningful —
+      // it means "no student app accounts at all" (managerial-style).
+      linkedStudentCapacity: this.fb.control<number | null>(null, [Validators.min(0)]),
     },
-    { validators: [TeacherFormComponent.passwordsMatch] },
+    {
+      validators: [
+        TeacherFormComponent.passwordsMatch,
+        TeacherFormComponent.linkedNotAboveCapacity,
+      ],
+    },
   );
 
   ngOnInit(): void {
@@ -322,7 +359,14 @@ export class TeacherFormComponent implements OnInit {
   }
 
   private relaxCreateOnlyValidators(): void {
-    for (const name of ['password', 'confirmedPassword', 'subjectId', 'languagePreference', 'studentCapacity']) {
+    for (const name of [
+      'password',
+      'confirmedPassword',
+      'subjectId',
+      'languagePreference',
+      'studentCapacity',
+      'linkedStudentCapacity',
+    ]) {
       const control = this.form.get(name);
       control?.clearValidators();
       control?.updateValueAndValidity();
@@ -334,6 +378,20 @@ export class TeacherFormComponent implements OnInit {
     const password = group.get('password')?.value;
     const confirm = group.get('confirmedPassword')?.value;
     return password && confirm && password !== confirm ? { passwordMismatch: true } : null;
+  }
+
+  /**
+   * Group-level validator: the "student app accounts" limit can never exceed the
+   * "students in account" limit — an app account belongs to a student who already
+   * exists in the account, so more seats than students is meaningless (and would be
+   * billed). Skips when either side is blank so the field's own required/min rule
+   * reports first, and in edit mode where both are relaxed.
+   */
+  private static linkedNotAboveCapacity(group: AbstractControl): ValidationErrors | null {
+    const capacity = group.get('studentCapacity')?.value;
+    const linked = group.get('linkedStudentCapacity')?.value;
+    if (capacity == null || linked == null || capacity === '' || linked === '') return null;
+    return Number(linked) > Number(capacity) ? { linkedAboveCapacity: true } : null;
   }
 
   protected setUiLang(lang: UiLang): void {
@@ -350,6 +408,14 @@ export class TeacherFormComponent implements OnInit {
   protected invalid(control: string): boolean {
     const c = this.form.get(control);
     return !!c && c.invalid && (c.touched || c.dirty);
+  }
+
+  /** App-accounts field shows an error for its own required/min rule OR the
+   *  group-level "must not exceed students in account" rule. */
+  protected linkedCapacityInvalid(): boolean {
+    const c = this.form.controls.linkedStudentCapacity;
+    const touched = c.touched || c.dirty || this.form.controls.studentCapacity.dirty;
+    return touched && (c.invalid || this.form.hasError('linkedAboveCapacity'));
   }
 
   /** Confirm field shows an error for its own required rule OR the group mismatch. */
@@ -387,6 +453,8 @@ export class TeacherFormComponent implements OnInit {
       subjectIds: raw.subjectId != null ? [raw.subjectId] : [],
       languagePreference: raw.languagePreference,
       studentCapacity: raw.studentCapacity,
+      // Omitted when blank -> the server mirrors studentCapacity (old-client behaviour).
+      linkedStudentCapacity: raw.linkedStudentCapacity ?? undefined,
       customSubject: raw.customSubject.trim() || undefined,
       idImage: this.idImage,
     };

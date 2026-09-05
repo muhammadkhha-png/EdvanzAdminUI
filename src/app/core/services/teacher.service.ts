@@ -112,6 +112,10 @@ export class TeacherService {
     form.append('languagePreference', req.languagePreference);
     if (req.email) form.append('email', req.email);
     if (req.studentCapacity != null) form.append('studentCapacity', String(req.studentCapacity));
+    // "Student app accounts" seat limit — the priced one. Appended only when set; a
+    // server that does not bind it yet just ignores the extra multipart field.
+    if (req.linkedStudentCapacity != null)
+      form.append('linkedStudentCapacity', String(req.linkedStudentCapacity));
     if (req.customSubject) form.append('customSubject', req.customSubject.trim());
     for (const id of req.subjectIds) form.append('subjectIds', String(id));
     if (req.idImage) form.append('idImage', req.idImage, req.idImage.name);

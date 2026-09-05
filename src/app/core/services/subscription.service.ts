@@ -10,13 +10,14 @@ import {
   AdminExtendRequest,
   AdminPendingQueueItem,
   AdminSetEndDateRequest,
+  AdminSetLinkedCapacityRequest,
   AdminSubscriptionRequestQueueItem,
   CancelSubscriptionRequest,
   CurrentSubscriptionDto,
   RejectSubscriptionRequestRequest,
   SubscriptionRequestDto,
 } from '../models/subscription.model';
-import { TeacherSubscriptionDto } from '../models/teacher.model';
+import { CapacityAdjustResult, TeacherSubscriptionDto } from '../models/teacher.model';
 import { PaginatedResponse } from '../models/paginated-response.model';
 
 @Injectable({ providedIn: 'root' })
@@ -118,6 +119,31 @@ export class SubscriptionService {
       .put<ApiResult<CurrentSubscriptionDto>>(
         `${this.base}/admin/subscriptions/end-date`,
         request,
+      )
+      .pipe(map((r) => r.data));
+  }
+
+  /**
+   * PUT /api/admin/subscriptions/teachers/{teacherId}/linked-capacity
+   * Sets the teacher's "student app accounts" limit — the number the subscription
+   * is priced on. SuperAdmin only, and unlike the roster-capacity endpoint
+   * (TeacherService.adjustTeacherCapacity, increase-only) this one allows DECREASES
+   * as well: a lower limit never unlinks students who are already signed in, it only
+   * blocks new links. `lang` drives Accept-Language so the backend's success/error
+   * message matches the bilingual screen that called it. Returns the same
+   * CapacityRequestDto subset as its sibling; like TeacherService.adjustTeacherCapacity
+   * the caller re-reads the teacher profile rather than trusting the echoed row.
+   */
+  setLinkedStudentCapacity(
+    teacherId: number,
+    request: AdminSetLinkedCapacityRequest,
+    lang: 'en' | 'ar' = 'en',
+  ): Observable<CapacityAdjustResult> {
+    return this.http
+      .put<ApiResult<CapacityAdjustResult>>(
+        `${this.base}/admin/subscriptions/teachers/${teacherId}/linked-capacity`,
+        request,
+        { headers: { 'Accept-Language': lang } },
       )
       .pipe(map((r) => r.data));
   }

@@ -15,6 +15,7 @@ import {
   TeacherProfile,
   UpdateTeacherProfileRequest,
 } from '../../../core/models/teacher.model';
+import { SubscriptionService } from '../../../core/services/subscription.service';
 import { TeacherService } from '../../../core/services/teacher.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { ConfirmDialogService } from '../../../shared/components/confirm-dialog/confirm-dialog.service';
@@ -26,7 +27,19 @@ const MSG: Record<UiLang, Record<string, string>> = {
     edit: 'Edit teacher', save: 'Save changes', saving: 'Saving…', cancel: 'Cancel',
     fullName: 'Full name', email: 'Email', phone: 'Phone', teacherCode: 'Teacher code',
     subject: 'Subject', customSubject: 'Custom subject', language: 'App language',
-    capacity: 'Student capacity', package: 'Capacity package', accountStatus: 'Account status',
+    capacity: 'Students in account', package: 'Capacity package', accountStatus: 'Account status',
+    capacityHint: 'Every student the teacher adds and manages. The subscription is NOT priced on this number.',
+    linkedCapacity: 'Student app accounts',
+    linkedCapacityHint: 'Students who sign in to the app and see their own data. The subscription price is calculated on THIS number.',
+    pricedBadge: 'Subscription priced on this',
+    overLimitBadge: 'Over the limit',
+    adjustLinked: 'Adjust',
+    linkedLowerBelowUsageTitle: 'Set the limit below the accounts already in use?',
+    linkedCapacityInvalid: 'Enter 0 or a higher whole number, then press Set.',
+    linkedCapacitySame: 'That is already the current limit. Change the number, or press Cancel to leave it as it is.',
+    linkedCapacityUpdated: 'Student app accounts limit updated. The next renewal is priced on the new number.',
+    linkedLowerTitle: 'Lower the student app accounts limit?',
+    confirmApply: 'Confirm',
     createdAt: 'Created', subscription: 'Subscription', none: '—', notSet: 'Not set',
     subjectPlaceholder: 'Select a subject', packagePlaceholder: 'Select a package',
     reqFullName: 'Full name is required.',
@@ -52,7 +65,19 @@ const MSG: Record<UiLang, Record<string, string>> = {
     edit: 'تعديل المدرّس', save: 'حفظ التعديلات', saving: 'جارٍ الحفظ…', cancel: 'إلغاء',
     fullName: 'الاسم بالكامل', email: 'البريد الإلكتروني', phone: 'رقم الموبايل', teacherCode: 'كود المدرّس',
     subject: 'المادة', customSubject: 'مادة مخصّصة', language: 'لغة التطبيق',
-    capacity: 'سعة الطلاب', package: 'باقة السعة', accountStatus: 'حالة الحساب',
+    capacity: 'الطلاب في الحساب', package: 'باقة السعة', accountStatus: 'حالة الحساب',
+    capacityHint: 'كل الطلاب اللي المدرّس بيضيفهم ويتابعهم. سعر الاشتراك مش بيتحسب على الرقم ده.',
+    linkedCapacity: 'حسابات الطلاب على التطبيق',
+    linkedCapacityHint: 'الطلاب اللي بيدخلوا على التطبيق ويشوفوا بياناتهم. سعر الاشتراك بيتحسب على الرقم ده.',
+    pricedBadge: 'سعر الاشتراك على ده',
+    overLimitBadge: 'فوق الحد',
+    adjustLinked: 'تعديل الحد',
+    linkedLowerBelowUsageTitle: 'تحطّ الحد أقل من الحسابات المستخدَمة بالفعل؟',
+    linkedCapacityInvalid: 'اكتب صفر أو رقم صحيح أكبر، وبعدين اضغط حفظ.',
+    linkedCapacitySame: 'ده نفس الحد الحالي. غيّر الرقم، أو اضغط إلغاء عشان تسيبه زي ما هو.',
+    linkedCapacityUpdated: 'تم تحديث حد حسابات الطلاب على التطبيق. التجديد الجاي هيتحسب على الرقم الجديد.',
+    linkedLowerTitle: 'تقليل حد حسابات الطلاب على التطبيق؟',
+    confirmApply: 'تأكيد',
     createdAt: 'تاريخ الإنشاء', subscription: 'الاشتراك', none: '—', notSet: 'غير محدّد',
     subjectPlaceholder: 'اختر المادة', packagePlaceholder: 'اختر الباقة',
     reqFullName: 'الاسم بالكامل مطلوب.',
@@ -134,8 +159,55 @@ const MSG: Record<UiLang, Record<string, string>> = {
                       (click)="cancelAdjustCapacity()">{{ t('adjustCancel') }}</button>
                   </div>
                 }
+                <!-- Hints only appear once the server sends the linked limit, so a
+                     pre-rollout response renders this row exactly as it does today. -->
+                @if (current.linkedStudentCapacity != null) {
+                  <div class="form-text">{{ t('capacityHint') }}</div>
+                }
               </dd>
             </div>
+
+            <!-- ── Student app accounts — the PRICED limit; increases AND decreases ── -->
+            @if (current.linkedStudentCapacity != null) {
+              <div>
+                <dt>{{ t('linkedCapacity') }}</dt>
+                <dd>
+                  @if (!adjustingLinked()) {
+                    <!-- used / limit once the server sends the seat count; a pre-rollout
+                         response degrades to the limit alone (never "undefined / 200"). -->
+                    @if (current.linkedStudentsUsed != null) {
+                      <span [class.text-warning-emphasis]="linkedOverLimit()">{{ current.linkedStudentsUsed }}</span><span
+                        class="text-muted"> / {{ current.linkedStudentCapacity }}</span>
+                    } @else {
+                      {{ current.linkedStudentCapacity }}
+                    }
+                    <span class="badge text-bg-light border fw-normal ms-2">{{ t('pricedBadge') }}</span>
+                    @if (linkedOverLimit()) {
+                      <span class="badge text-bg-warning fw-normal ms-1">{{ t('overLimitBadge') }}</span>
+                    }
+                    <button type="button" class="btn btn-sm btn-outline-primary ms-2"
+                      (click)="startAdjustLinkedCapacity()">
+                      {{ t('adjustLinked') }}
+                    </button>
+                  } @else {
+                    <div class="d-flex align-items-center gap-2">
+                      <input type="number" class="form-control form-control-sm" style="max-width:130px"
+                        [formControl]="linkedCapacityControl" min="0" />
+                      <button type="button" class="btn btn-sm btn-primary" [disabled]="savingLinkedCapacity()"
+                        (click)="saveLinkedCapacity()">{{ savingLinkedCapacity() ? t('saving') : t('adjustSave') }}</button>
+                      <button type="button" class="btn btn-sm btn-outline-secondary"
+                        (click)="cancelAdjustLinkedCapacity()">{{ t('adjustCancel') }}</button>
+                    </div>
+                  }
+                  <div class="form-text">{{ t('linkedCapacityHint') }}</div>
+                  @if (linkedOverLimit()) {
+                    <div class="form-text">{{ overLimitNote() }}</div>
+                  } @else if (current.linkedStudentsUsed != null) {
+                    <div class="form-text">{{ remainingNote() }}</div>
+                  }
+                </dd>
+              </div>
+            }
             <div><dt>{{ t('accountStatus') }}</dt><dd>{{ current.accountStatus }}</dd></div>
             <div><dt>{{ t('createdAt') }}</dt><dd>{{ current.createdAt | date: 'mediumDate' }}</dd></div>
             <div><dt>{{ t('subscription') }}</dt><dd>{{ current.activeSubscription?.subscriptionStatus || t('none') }}</dd></div>
@@ -242,6 +314,7 @@ const MSG: Record<UiLang, Record<string, string>> = {
 export class TeacherInfoComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly teacherService = inject(TeacherService);
+  private readonly subscriptionService = inject(SubscriptionService);
   private readonly toast = inject(ToastService);
   private readonly confirm = inject(ConfirmDialogService);
   private readonly fb = inject(FormBuilder);
@@ -253,6 +326,8 @@ export class TeacherInfoComponent implements OnInit {
   protected readonly saving = signal(false);
   protected readonly adjusting = signal(false);
   protected readonly savingCapacity = signal(false);
+  protected readonly adjustingLinked = signal(false);
+  protected readonly savingLinkedCapacity = signal(false);
   protected readonly uiLang = signal<UiLang>('en');
   protected readonly billingOpen = signal(false);
   protected readonly billingRunning = signal(false);
@@ -274,6 +349,10 @@ export class TeacherInfoComponent implements OnInit {
   );
 
   protected readonly capacityControl = this.fb.nonNullable.control(0, [Validators.required]);
+
+  /** "Student app accounts" limit. Unlike capacityControl this accepts a value below
+   *  the current one — decreases are legal and only block NEW links. */
+  protected readonly linkedCapacityControl = this.fb.nonNullable.control(0, [Validators.required]);
 
   /** yyyy-MM from the native month input; "-01" is appended for the API. */
   protected readonly billingMonthControl = this.fb.nonNullable.control('');
@@ -488,5 +567,123 @@ export class TeacherInfoComponent implements OnInit {
       },
       error: () => this.savingCapacity.set(false),
     });
+  }
+
+  // ── Student app accounts adjust (the PRICED limit; up OR down) ─────────────
+  // Deliberately NOT increase-only: the backend accepts a lower number, already
+  // linked students keep working, and only new links are blocked. The decrease is
+  // confirmed first so the admin sees that before it happens.
+
+  protected startAdjustLinkedCapacity(): void {
+    this.linkedCapacityControl.setValue(this.current.linkedStudentCapacity ?? 0);
+    this.adjustingLinked.set(true);
+  }
+
+  protected cancelAdjustLinkedCapacity(): void {
+    this.adjustingLinked.set(false);
+  }
+
+  /** True only when the server sent a seat count AND it sits above the limit. This
+   *  state is LEGAL and reachable (an admin lowered the limit under existing usage);
+   *  it is rendered as an over-limit state, never treated as bad data. */
+  protected linkedOverLimit(): boolean {
+    const t = this.teacher();
+    if (!t || t.linkedStudentCapacity == null || t.linkedStudentsUsed == null) return false;
+    return t.linkedStudentsUsed > t.linkedStudentCapacity;
+  }
+
+  /** Seats still linkable. Clamped at 0 — an over-limit teacher has none left, and a
+   *  negative "remaining" must never reach the screen. */
+  protected linkedRemaining(): number {
+    const t = this.teacher();
+    if (!t || t.linkedStudentCapacity == null || t.linkedStudentsUsed == null) return 0;
+    return Math.max(0, t.linkedStudentCapacity - t.linkedStudentsUsed);
+  }
+
+  protected remainingNote(): string {
+    const left = this.linkedRemaining();
+    return this.uiLang() === 'ar'
+      ? `فاضل ${left} حساب المدرّس يقدر يربطهم.`
+      : `${left} more can still be linked.`;
+  }
+
+  /** Calm explanation of the over-limit state: what is true, and what to do next. */
+  protected overLimitNote(): string {
+    const used = this.current.linkedStudentsUsed ?? 0;
+    const limit = this.current.linkedStudentCapacity ?? 0;
+    return this.uiLang() === 'ar'
+      ? `فيه ${used} حساب مستخدَم والحد ${limit}. محدش اتفصل والحسابات دي كلها شغالة عادي — المدرّس بس مش هيقدر يربط حساب جديد لحد ما العدد ينزل تحت ${limit}، أو لما تزوّد الحد من هنا.`
+      : `${used} accounts are in use against a limit of ${limit}. Nobody has been disconnected and they all keep working — the teacher just can't link anyone new until usage drops below ${limit}, or you raise the limit here.`;
+  }
+
+  /** Decrease that stays at or above current usage — nothing changes for anyone today. */
+  protected linkedLowerPlainMessage(from: number, to: number, used: number): string {
+    const spare = Math.max(0, to - used);
+    return this.uiLang() === 'ar'
+      ? `هتقلّل حد حسابات الطلاب على التطبيق من ${from} لـ ${to}. المستخدَم دلوقتي ${used} بس، يعني مفيش حاجة هتتغيّر على حد النهارده ولسه المدرّس يقدر يربط ${spare} كمان. التجديد الجاي هيتحسب على ${to}.`
+      : `This lowers the student app accounts limit from ${from} to ${to}. Only ${used} are in use, so nothing changes for anyone today and the teacher can still link ${spare} more. The next renewal is priced on ${to}.`;
+  }
+
+  /** Decrease BELOW current usage — the one case that needs a real warning. */
+  protected linkedBelowUsageMessage(from: number, to: number, used: number): string {
+    return this.uiLang() === 'ar'
+      ? `فيه ${used} حساب طالب مستخدَم بالفعل، وإنت بتحطّ الحد ${to} — أقل منهم. محدش هيتفصل: الـ ${used} دول هيفضلوا شغالين زي ما هم بالظبط. المدرّس بس مش هيقدر يربط حد جديد لحد ما العدد ينزل تحت ${to}. التجديد الجاي هيتحسب على ${to}. اضغط تأكيد للتطبيق، أو إلغاء عشان يفضل ${from}.`
+      : `${used} student app accounts are already in use and this sets the limit to ${to} — below that. Nobody is disconnected: all ${used} keep working exactly as they are. The teacher just can't link anyone new until usage drops below ${to}. The next renewal is priced on ${to}. Press Confirm to apply, or Cancel to keep ${from}.`;
+  }
+
+  /** Fallback for a pre-rollout server that sends no seat count: usage is unknown, so
+   *  the warning has to stay general. */
+  protected linkedLowerMessage(from: number, to: number): string {
+    return this.uiLang() === 'ar'
+      ? `هتقلّل حد حسابات الطلاب على التطبيق من ${from} لـ ${to}. الطلاب اللي عندهم حسابات شغالة دلوقتي هيفضلوا زي ما هم ومحدش هيتقفل حسابه — اللي هيتمنع بس هو ربط حسابات جديدة بعد ما العدد يوصل ${to}. لو العدد المستخدَم حاليًا أكتر من ${to}، المدرّس مش هيقدر يربط حد جديد لحد ما العدد ينزل تحت الحد. التجديد الجاي هيتحسب على ${to}. اضغط تأكيد للتطبيق، أو إلغاء عشان يفضل ${from}.`
+      : `This lowers the student app accounts limit from ${from} to ${to}. Students who already have a working app account stay exactly as they are — nobody is disconnected. Only NEW links are blocked once the count reaches ${to}, so if more than ${to} are already in use the teacher simply cannot link anyone new until usage drops below the limit. The next renewal is priced on ${to}. Press Confirm to apply, or Cancel to keep ${from}.`;
+  }
+
+  protected async saveLinkedCapacity(): Promise<void> {
+    const value = this.linkedCapacityControl.value;
+    const currentLimit = this.current.linkedStudentCapacity ?? 0;
+
+    if (value == null || !Number.isInteger(value) || value < 0) {
+      this.toast.error(this.t('linkedCapacityInvalid'));
+      return;
+    }
+    if (value === currentLimit) {
+      this.toast.error(this.t('linkedCapacitySame'));
+      return;
+    }
+    // Only a decrease that lands BELOW seats already in use deserves an alarming
+    // modal. A decrease that still clears current usage is harmless, and when the
+    // server sends no seat count at all we fall back to the general wording.
+    if (value < currentLimit) {
+      const used = this.current.linkedStudentsUsed ?? null;
+      const belowUsage = used != null && value < used;
+      const message =
+        used == null
+          ? this.linkedLowerMessage(currentLimit, value)
+          : belowUsage
+            ? this.linkedBelowUsageMessage(currentLimit, value, used)
+            : this.linkedLowerPlainMessage(currentLimit, value, used);
+      const ok = await this.confirm.open({
+        title: belowUsage ? this.t('linkedLowerBelowUsageTitle') : this.t('linkedLowerTitle'),
+        message,
+        confirmText: this.t('confirmApply'),
+        cancelText: this.t('adjustCancel'),
+      });
+      if (!ok) return;
+    }
+
+    this.savingLinkedCapacity.set(true);
+    this.subscriptionService
+      .setLinkedStudentCapacity(this.teacherId, { newCapacity: value }, this.uiLang())
+      .subscribe({
+        next: () => {
+          // Re-fetch so linkedStudentCapacity (and any derived fields) reflect the change.
+          this.teacherService.getTeacherById(this.teacherId).subscribe((t) => this.teacher.set(t));
+          this.adjustingLinked.set(false);
+          this.savingLinkedCapacity.set(false);
+          this.toast.success(this.t('linkedCapacityUpdated'));
+        },
+        error: () => this.savingLinkedCapacity.set(false),
+      });
   }
 }

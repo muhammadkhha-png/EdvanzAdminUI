@@ -74,13 +74,24 @@ export class SubscriptionRequestsComponent implements OnInit {
   protected async approve(
     item: AdminSubscriptionRequestQueueItem,
   ): Promise<void> {
+    // Spell out BOTH limits for Full plans: the amount comes from the app-accounts
+    // number, so the admin must see which one they are approving. The app-accounts
+    // half is omitted on a pre-rollout server that does not send it.
+    const seats =
+      item.requestedLinkedStudents != null
+        ? `${item.requestedStudents} students in the account, ${item.requestedLinkedStudents} student app accounts`
+        : `capacity ${item.requestedStudents} students`;
     const plan =
       item.planType === 'Full'
-        ? `a Full subscription (capacity ${item.requestedStudents} students)`
+        ? `a Full subscription (${seats})`
         : `a ${planTypeLabel(item.planType)} subscription`;
+    const pricedOn =
+      item.requestedLinkedStudents != null
+        ? `, priced on the ${item.requestedLinkedStudents} app accounts`
+        : '';
     const ok = await this.confirm.open({
       title: 'Approve subscription request',
-      message: `Activate ${plan} for ${item.teacherName} (${item.teacherCode})? Payment (${item.computedAmountEGP} EGP) is coordinated separately — approving only activates the subscription.`,
+      message: `Activate ${plan} for ${item.teacherName} (${item.teacherCode})? Payment (${item.computedAmountEGP} EGP${pricedOn}) is coordinated separately — approving only activates the subscription.`,
       confirmText: 'Approve & activate',
       cancelText: 'Cancel',
     });
