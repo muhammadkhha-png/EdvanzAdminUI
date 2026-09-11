@@ -7,7 +7,6 @@ import {
   input,
   output,
   signal,
-  viewChild,
 } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -338,7 +337,7 @@ import { formatDate, formatDateTime, timeAgo } from '../../utils/time-format';
                 <h4>Reset password</h4>
                 <p class="reset-hint">Signs them out of every device. At least 8 characters.</p>
                 <input
-                  #resetInput
+
                   type="text"
                   class="form-control"
                   placeholder="New password"
@@ -837,7 +836,7 @@ export class TeacherPanelComponent {
   protected readonly noteBody = new FormControl('', { nonNullable: true });
   protected readonly newPassword = new FormControl('', { nonNullable: true });
   protected readonly resetting = signal(false);
-  private readonly resetInput = viewChild<ElementRef<HTMLInputElement>>('resetInput');
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   protected readonly formatDate = formatDate;
   protected readonly formatDateTime = formatDateTime;
@@ -933,10 +932,13 @@ export class TeacherPanelComponent {
   protected openReset(): void {
     this.newPassword.setValue('');
     this.resetting.set(true);
-    // Scroll the revealed field into view and focus it. Without this the panel can
-    // stay exactly as it was, so pressing the button looks like it did nothing.
+    // Scroll the revealed field into view and focus it, so the button visibly does
+    // something even when the form opens near the bottom edge of the panel.
+    // Queried from the host rather than through viewChild(): the signal has not been
+    // updated yet at this point, so the reference would be undefined and nothing
+    // would scroll.
     setTimeout(() => {
-      const el = this.resetInput()?.nativeElement;
+      const el = this.host.nativeElement.querySelector<HTMLInputElement>('.reset input');
       el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
       el?.focus();
     });
