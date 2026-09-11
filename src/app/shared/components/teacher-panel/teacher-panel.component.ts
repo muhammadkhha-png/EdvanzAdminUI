@@ -6,7 +6,10 @@ import {
   AdminNote,
   TeacherUsageDetail,
 } from '../../../core/services/admin-insights.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { TeacherService } from '../../../core/services/teacher.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { ConfirmDialogService } from '../confirm-dialog/confirm-dialog.service';
 import { DayStripComponent } from '../day-strip/day-strip.component';
 import { UsageBadgeComponent } from '../usage-badge/usage-badge.component';
 import { formatDate, formatDateTime, timeAgo } from '../../utils/time-format';
@@ -264,10 +267,62 @@ import { formatDate, formatDateTime, timeAgo } from '../../utils/time-format';
             }
           </section>
 
+          <!-- ── Actions ────────────────────────────────────────────────
+               These used to live on a separate teacher list that the one-list
+               merge replaced. They belong HERE: you are already looking at the
+               teacher, so acting on them should not mean navigating away. -->
+          <section class="sec">
+            <h3>Manage this teacher</h3>
+
+            <div class="actions">
+              <a class="act" [routerLink]="['/teacher', teacherId(), 'subscription']">
+                Subscription
+                <span class="act-sub">Activate, extend, change the end date</span>
+              </a>
+              <a class="act" [routerLink]="['/teacher', teacherId()]">
+                Capacity &amp; profile
+                <span class="act-sub">Student and linked-account limits</span>
+              </a>
+              <a class="act" [routerLink]="['/teacher', teacherId(), 'modules']">
+                Features
+                <span class="act-sub">Grant or revoke what they can use</span>
+              </a>
+              <a class="act" [routerLink]="['/teacher', teacherId(), 'edit']">
+                Edit details
+                <span class="act-sub">Name, phone, subject</span>
+              </a>
+            </div>
+
+            <div class="danger-row">
+              <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openReset()">
+                Reset password
+              </button>
+              @if (d.summary.accountStatus === 'Active') {
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary btn-sm"
+                  (click)="setActive(false)"
+                  [disabled]="busy()"
+                >
+                  Deactivate
+                </button>
+              } @else {
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary btn-sm"
+                  (click)="setActive(true)"
+                  [disabled]="busy()"
+                >
+                  Activate
+                </button>
+              }
+              <button type="button" class="btn btn-outline-secondary btn-sm danger" (click)="remove()">
+                Delete
+              </button>
+            </div>
+          </section>
+
           <footer class="foot">
-            <a class="btn btn-outline-secondary btn-sm" [routerLink]="['/teacher', teacherId()]">
-              Open full record
-            </a>
             <button
               type="button"
               class="btn btn-outline-secondary btn-sm"
@@ -280,6 +335,35 @@ import { formatDate, formatDateTime, timeAgo } from '../../utils/time-format';
               {{ d.summary.computedAt ? 'updated ' + timeAgo(d.summary.computedAt) : 'never computed' }}
             </span>
           </footer>
+
+          @if (resetting()) {
+            <div class="reset">
+              <h4>Reset password</h4>
+              <p class="reset-hint">
+                Signs them out of every device. At least 8 characters.
+              </p>
+              <input
+                type="text"
+                class="form-control"
+                placeholder="New password"
+                [formControl]="newPassword"
+                autocomplete="off"
+              />
+              <div class="reset-actions">
+                <button
+                  type="button"
+                  class="btn btn-primary btn-sm"
+                  (click)="confirmReset()"
+                  [disabled]="busy() || newPassword.value.trim().length < 8"
+                >
+                  Set password
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="resetting.set(false)">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          }
         </div>
       } @else if (loading()) {
         <div class="loading"><span class="spinner-sm"></span> Loading</div>
@@ -616,6 +700,72 @@ import { formatDate, formatDateTime, timeAgo } from '../../utils/time-format';
         color: var(--ink-3);
       }
 
+      .actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: var(--s-2);
+      }
+      .act {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: var(--s-3);
+        border: 1px solid var(--rule-strong);
+        border-radius: var(--r-sm);
+        text-decoration: none;
+        color: var(--ink);
+        font-size: var(--t-sm);
+        font-weight: 500;
+      }
+      .act:hover {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+      }
+      .act-sub {
+        font-size: var(--t-xs);
+        font-weight: 400;
+        color: var(--ink-3);
+      }
+      /* The irreversible ones sit apart from the navigational ones, so a delete is
+         never one slip away from opening a page. */
+      .danger-row {
+        display: flex;
+        gap: var(--s-2);
+        flex-wrap: wrap;
+        margin-top: var(--s-3);
+        padding-top: var(--s-3);
+        border-top: 1px solid var(--rule);
+      }
+      .danger-row .danger {
+        color: var(--gone);
+        border-color: var(--gone-soft);
+      }
+      .danger-row .danger:hover {
+        border-color: var(--gone);
+        background: var(--gone-soft);
+      }
+      .reset {
+        margin-top: var(--s-4);
+        padding: var(--s-4);
+        border: 1px solid var(--accent);
+        border-radius: var(--r-md);
+        background: var(--accent-soft);
+      }
+      .reset h4 {
+        margin: 0 0 var(--s-1);
+        font-size: var(--t-sm);
+        font-weight: 600;
+      }
+      .reset-hint {
+        margin: 0 0 var(--s-2);
+        font-size: var(--t-xs);
+        color: var(--ink-2);
+      }
+      .reset-actions {
+        display: flex;
+        gap: var(--s-2);
+        margin-top: var(--s-2);
+      }
       .foot {
         display: flex;
         align-items: center;
@@ -658,6 +808,9 @@ import { formatDate, formatDateTime, timeAgo } from '../../utils/time-format';
 export class TeacherPanelComponent {
   private readonly insights = inject(AdminInsightsService);
   private readonly toast = inject(ToastService);
+  private readonly teachers = inject(TeacherService);
+  private readonly auth = inject(AuthService);
+  private readonly confirm = inject(ConfirmDialogService);
 
   readonly teacherId = input.required<number>();
   readonly closed = output<void>();
@@ -667,6 +820,8 @@ export class TeacherPanelComponent {
   protected readonly loading = signal(true);
   protected readonly busy = signal(false);
   protected readonly noteBody = new FormControl('', { nonNullable: true });
+  protected readonly newPassword = new FormControl('', { nonNullable: true });
+  protected readonly resetting = signal(false);
 
   protected readonly formatDate = formatDate;
   protected readonly formatDateTime = formatDateTime;
@@ -757,6 +912,88 @@ export class TeacherPanelComponent {
       },
       error: () => this.busy.set(false),
     });
+  }
+
+  protected openReset(): void {
+    this.newPassword.setValue('');
+    this.resetting.set(true);
+  }
+
+  /**
+   * Resets the teacher's LOGIN password. Takes the User id, not the teacher id —
+   * the admin endpoint targets the login account, which is why the panel carries
+   * userId alongside teacherId.
+   */
+  protected confirmReset(): void {
+    const pw = this.newPassword.value.trim();
+    const userId = this.detail()?.summary.userId;
+    if (!userId || pw.length < 8) return;
+
+    this.busy.set(true);
+    this.auth
+      .forceChangePassword({ userId, newPassword: pw, confirmPassword: pw })
+      .subscribe({
+        next: () => {
+          this.busy.set(false);
+          this.resetting.set(false);
+          this.newPassword.setValue('');
+          this.toast.success('Password reset. They are signed out everywhere.');
+        },
+        error: () => this.busy.set(false),
+      });
+  }
+
+  /** Activates or deactivates the account, then refreshes what the panel shows. */
+  protected async setActive(active: boolean): Promise<void> {
+    if (!active) {
+      const ok = await this.confirm.open({
+        title: 'Deactivate this teacher?',
+        message: 'They will not be able to sign in until reactivated.',
+        confirmText: 'Deactivate',
+        danger: true,
+      });
+      if (!ok) return;
+    }
+
+    this.busy.set(true);
+    const call = active
+      ? this.teachers.activateTeacher(this.teacherId())
+      : this.teachers.deactivateTeacher(this.teacherId());
+
+    call.subscribe({
+      next: () => {
+        this.busy.set(false);
+        this.toast.success(active ? 'Teacher activated.' : 'Teacher deactivated.');
+        this.reload();
+      },
+      error: () => this.busy.set(false),
+    });
+  }
+
+  protected async remove(): Promise<void> {
+    const ok = await this.confirm.open({
+      title: 'Delete this teacher?',
+      message:
+        'The account is removed from the lists. Their data is kept for the retention period.',
+      confirmText: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
+
+    this.busy.set(true);
+    this.teachers.softDeleteTeacher(this.teacherId()).subscribe({
+      next: () => {
+        this.busy.set(false);
+        this.toast.success('Teacher deleted.');
+        this.closed.emit();
+      },
+      error: () => this.busy.set(false),
+    });
+  }
+
+  /** Re-reads the teacher after an action changed something on the record. */
+  private reload(): void {
+    this.insights.getTeacher(this.teacherId()).subscribe((d) => this.detail.set(d));
   }
 
   protected recompute(): void {

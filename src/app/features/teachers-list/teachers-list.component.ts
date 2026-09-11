@@ -1,6 +1,6 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import {
   AdminInsightsService,
@@ -37,22 +37,32 @@ const PAGE_SIZE = 25;
 @Component({
   selector: 'app-teachers-list',
   standalone: true,
-  imports: [ReactiveFormsModule, InfiniteScrollDirective, DayStripComponent, TeacherPanelComponent],
+  imports: [
+    RouterLink,
+    ReactiveFormsModule,
+    InfiniteScrollDirective,
+    DayStripComponent,
+    TeacherPanelComponent,
+  ],
   template: `
     <div class="page-header">
       <div>
         <h2>{{ viewTitle() }}</h2>
         <p>{{ viewBlurb() }}</p>
       </div>
-      <button
-        type="button"
-        class="btn btn-outline-secondary btn-sm"
-        (click)="exportCsv()"
-        [disabled]="exporting()"
-        title="Downloads every teacher in this view, with contact details and notes"
-      >
-        {{ exporting() ? 'Preparing…' : 'Export CSV' }}
-      </button>
+      <div class="head-actions">
+        <button
+          type="button"
+          class="btn btn-outline-secondary btn-sm"
+          (click)="exportCsv()"
+          [disabled]="exporting()"
+          title="Downloads every teacher in this view, with contact details and notes"
+        >
+          {{ exporting() ? 'Preparing…' : 'Export CSV' }}
+        </button>
+        <!-- Creating a teacher lived on the old list this screen replaced. -->
+        <a class="btn btn-primary btn-sm" routerLink="/teacher/new">New teacher</a>
+      </div>
     </div>
 
     <!-- ── Views ───────────────────────────────────────────────────────── -->
@@ -228,6 +238,12 @@ const PAGE_SIZE = 25;
   `,
   styles: [
     `
+      .head-actions {
+        display: flex;
+        gap: var(--s-2);
+        flex-wrap: wrap;
+      }
+
       /* ── Views ────────────────────────────────────────────────────── */
       .views {
         display: flex;
