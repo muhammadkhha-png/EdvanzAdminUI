@@ -1,4 +1,14 @@
-import { Component, computed, effect, inject, input, output, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  effect,
+  ElementRef,
+  inject,
+  input,
+  output,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import {
@@ -320,6 +330,40 @@ import { formatDate, formatDateTime, timeAgo } from '../../utils/time-format';
                 Delete
               </button>
             </div>
+
+            <!-- Directly under the button that opens it. Placed after the footer it
+                 was off-screen, so pressing "Reset password" read as doing nothing. -->
+            @if (resetting()) {
+              <div class="reset">
+                <h4>Reset password</h4>
+                <p class="reset-hint">Signs them out of every device. At least 8 characters.</p>
+                <input
+                  #resetInput
+                  type="text"
+                  class="form-control"
+                  placeholder="New password"
+                  [formControl]="newPassword"
+                  autocomplete="off"
+                />
+                <div class="reset-actions">
+                  <button
+                    type="button"
+                    class="btn btn-primary btn-sm"
+                    (click)="confirmReset()"
+                    [disabled]="busy() || newPassword.value.trim().length < 8"
+                  >
+                    Set password
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-outline-secondary btn-sm"
+                    (click)="resetting.set(false)"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            }
           </section>
 
           <footer class="foot">
@@ -335,35 +379,6 @@ import { formatDate, formatDateTime, timeAgo } from '../../utils/time-format';
               {{ d.summary.computedAt ? 'updated ' + timeAgo(d.summary.computedAt) : 'never computed' }}
             </span>
           </footer>
-
-          @if (resetting()) {
-            <div class="reset">
-              <h4>Reset password</h4>
-              <p class="reset-hint">
-                Signs them out of every device. At least 8 characters.
-              </p>
-              <input
-                type="text"
-                class="form-control"
-                placeholder="New password"
-                [formControl]="newPassword"
-                autocomplete="off"
-              />
-              <div class="reset-actions">
-                <button
-                  type="button"
-                  class="btn btn-primary btn-sm"
-                  (click)="confirmReset()"
-                  [disabled]="busy() || newPassword.value.trim().length < 8"
-                >
-                  Set password
-                </button>
-                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="resetting.set(false)">
-                  Cancel
-                </button>
-              </div>
-            </div>
-          }
         </div>
       } @else if (loading()) {
         <div class="loading"><span class="spinner-sm"></span> Loading</div>
@@ -822,6 +837,7 @@ export class TeacherPanelComponent {
   protected readonly noteBody = new FormControl('', { nonNullable: true });
   protected readonly newPassword = new FormControl('', { nonNullable: true });
   protected readonly resetting = signal(false);
+  private readonly resetInput = viewChild<ElementRef<HTMLInputElement>>('resetInput');
 
   protected readonly formatDate = formatDate;
   protected readonly formatDateTime = formatDateTime;
@@ -917,6 +933,13 @@ export class TeacherPanelComponent {
   protected openReset(): void {
     this.newPassword.setValue('');
     this.resetting.set(true);
+    // Scroll the revealed field into view and focus it. Without this the panel can
+    // stay exactly as it was, so pressing the button looks like it did nothing.
+    setTimeout(() => {
+      const el = this.resetInput()?.nativeElement;
+      el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      el?.focus();
+    });
   }
 
   /**
