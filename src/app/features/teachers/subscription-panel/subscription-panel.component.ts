@@ -208,6 +208,25 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog/
         </div>
       </div>
     }
+    @else if (loadState() === 'loading') {
+  <div class="action-card empty-state">
+    <div class="sk sk-title"></div>
+    <div class="sk"></div>
+    <div class="sk sk-short"></div>
+  </div>
+}
+    @else if (loadState() === 'failed') {
+  <div class="action-card empty-state">
+    <h6>Could not load the subscription</h6>
+    <p class="text-muted small mb-3">
+      Nothing has been changed. Try again before creating anything — this teacher may
+      already have a live subscription.
+    </p>
+    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="retry()">
+      Try again
+    </button>
+  </div>
+}
     @else {
   <div class="action-card empty-state">
     <h6>No subscription yet</h6>
@@ -273,6 +292,19 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog/
         border-bottom: 1px solid var(--edvanz-border, #eef2f7);
       }
       .empty-state { max-width: 520px; }
+      .sk {
+        height: 14px;
+        margin-bottom: 0.6rem;
+        border-radius: 6px;
+        background: linear-gradient(90deg, #eef0f4 25%, #f6f7f9 50%, #eef0f4 75%);
+        background-size: 200% 100%;
+        animation: sub-shimmer 1.4s infinite;
+      }
+      .sk-title { height: 20px; width: 45%; margin-bottom: 1rem; }
+      .sk-short { width: 70%; margin-bottom: 0; }
+      @keyframes sub-shimmer {
+        to { background-position: -200% 0; }
+      }
       .summary-row:last-child {
         border-bottom: none;
       }
@@ -329,6 +361,15 @@ export class SubscriptionPanelComponent implements OnInit {
   private subscriptionId: number | null = null;
 
   protected readonly subscription = signal<TeacherSubscriptionDto | null>(null);
+
+  /**
+   * A null subscription means two very different things — still fetching, or the
+   * teacher genuinely has none — and the create form must only appear for the
+   * second. Until this guard existed the form rendered during every fetch, so on a
+   * slow connection an admin could create a SECOND subscription for a teacher who
+   * already had a live one.
+   */
+  protected readonly loadState = signal<'loading' | 'loaded' | 'failed'>('loading');
 
   protected readonly activateForm = this.fb.nonNullable.group({
     planType: ['Full'],
@@ -523,12 +564,19 @@ export class SubscriptionPanelComponent implements OnInit {
   }
 
   private load(): void {
-    this.subscriptionService
-      .getByTeacher(this.teacherId)
-      .subscribe((sub) => {
+    this.loadState.set('loading');
+    this.subscriptionService.getByTeacher(this.teacherId).subscribe({
+      next: (sub) => {
         this.subscription.set(sub);
         this.subscriptionId = sub?.id ?? null;
-      });
+        this.loadState.set('loaded');
+      },
+      error: () => this.loadState.set('failed'),
+    });
+  }
+
+  protected retry(): void {
+    this.load();
   }
 
   /** Treats the date-input value (yyyy-MM-dd) as a UTC instant. */
