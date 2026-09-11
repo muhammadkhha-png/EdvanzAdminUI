@@ -489,6 +489,29 @@ export class UsageGridComponent implements OnInit {
       const teacher = params.get('teacher');
       this.selected.set(teacher ? Number(teacher) : null);
 
+      // Hydrate the filters FROM the URL on first load, so a shared or
+      // deep-linked view actually shows what its query string says. Without
+      // this the Sales page's "See teachers" link (/usage?salesRepId=N) landed
+      // on an unfiltered list and quietly showed the wrong thing.
+      if (!this.loadedOnce) {
+        const set = (c: FormControl<string>, key: string) => {
+          const v = params.get(key);
+          if (v) c.setValue(v, { emitEvent: false });
+        };
+        set(this.search, 'search');
+        set(this.cadence, 'cadence');
+        set(this.operators, 'operators');
+        set(this.usingModule, 'usingModule');
+        set(this.setup, 'hasRealData');
+        set(this.subscribed, 'subscribedWithinDays');
+        // "No rep assigned" is its own sentinel rather than an id.
+        if (params.get('unassignedSalesRep') === 'true') {
+          this.salesRepId.setValue('none', { emitEvent: false });
+        } else {
+          set(this.salesRepId, 'salesRepId');
+        }
+      }
+
       // Opening or closing the panel must NOT refetch the list — that would
       // rebuild the rows under the reader and throw away their scroll position.
       const card = params.get('card');
