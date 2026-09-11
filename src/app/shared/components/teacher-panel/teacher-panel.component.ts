@@ -932,16 +932,28 @@ export class TeacherPanelComponent {
   protected openReset(): void {
     this.newPassword.setValue('');
     this.resetting.set(true);
-    // Scroll the revealed field into view and focus it, so the button visibly does
-    // something even when the form opens near the bottom edge of the panel.
-    // Queried from the host rather than through viewChild(): the signal has not been
-    // updated yet at this point, so the reference would be undefined and nothing
-    // would scroll.
-    setTimeout(() => {
-      const el = this.host.nativeElement.querySelector<HTMLInputElement>('.reset input');
-      el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      el?.focus();
-    });
+    this.revealResetField();
+  }
+
+  /**
+   * Scrolls the revealed password field into view and focuses it, so the button
+   * visibly does something even when the form opens near the bottom edge.
+   *
+   * Waits for the field to actually exist rather than reading it once: neither a
+   * viewChild() signal nor a plain setTimeout is updated by the time the click
+   * handler finishes, so a single read finds nothing and nothing scrolls. Gives up
+   * after a few frames rather than looping if the field never renders.
+   */
+  private revealResetField(attempt = 0): void {
+    const el = this.host.nativeElement.querySelector<HTMLInputElement>('.reset input');
+    if (el) {
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      el.focus({ preventScroll: true });
+      return;
+    }
+    if (attempt < 10) {
+      requestAnimationFrame(() => this.revealResetField(attempt + 1));
+    }
   }
 
   /**
