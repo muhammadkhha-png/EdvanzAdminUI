@@ -19,7 +19,12 @@ interface NavGroup {
 /**
  * Left navigation.
  *
- * Grouped rather than a flat list of eleven: the console does three different
+ * TWO entries at the top, not four. Teachers used to be listed on four separate
+ * screens (Overview, Usage, Teachers, Login activity) and nothing said which was
+ * the real one. There is now ONE teacher list with views, and one page of numbers
+ * above it.
+ *
+ * Grouped rather than a flat list: the console does three different
  * jobs — understanding usage, managing accounts, and clearing queues — and a
  * single undifferentiated column made every page look equally likely to be the
  * one you wanted.
@@ -169,20 +174,15 @@ export class SidebarComponent {
     {
       title: null,
       items: [
-        { label: 'Overview', icon: '◎', route: '/overview', roles: ['SuperAdmin'] },
-        { label: 'Usage', icon: '▤', route: '/usage', roles: ['SuperAdmin'] },
+        { label: 'Numbers', icon: '◎', route: '/numbers', roles: ['SuperAdmin'] },
+        { label: 'Teachers', icon: '▤', route: '/teachers', roles: ['SuperAdmin'] },
       ],
     },
     {
       title: 'Accounts',
       items: [
-        { label: 'Teachers', icon: '🧑‍🏫', route: '/teachers' },
         { label: 'Centers', icon: '🏢', route: '/centers' },
         { label: 'Assistants', icon: '🧑‍💼', route: '/assistants' },
-        // Kept alongside Usage rather than replaced by it: this screen carries
-        // the per-assistant device/IP login audit, which is a different question
-        // from "is this account being worked".
-        { label: 'Login activity', icon: '🕒', route: '/activity', roles: ['SuperAdmin'] },
         { label: 'Students', icon: '🎓', route: '/students' },
         { label: 'Student accounts', icon: '🪪', route: '/student-accounts' },
       ],
@@ -218,6 +218,7 @@ export class SidebarComponent {
       ],
     },
   ];
+
 
   /**
    * Hides links the signed-in user cannot open. A link that only ever leads to

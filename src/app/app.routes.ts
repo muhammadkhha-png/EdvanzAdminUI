@@ -24,45 +24,40 @@ export const APP_ROUTES: Routes = [
         (m) => m.MainLayoutComponent,
       ),
     children: [
-      { path: '', pathMatch: 'full', redirectTo: 'overview' },
+      { path: '', pathMatch: 'full', redirectTo: 'numbers' },
       {
-        // The worklist. Replaces the old four-KPI dashboard, which could only
-        // count teachers and subscriptions and never said who needed a call.
-        path: 'overview',
+        // THE LANDING PAGE — how the subscribed base is doing.
+        path: 'numbers',
         canActivate: [permissionGuard],
-        data: { breadcrumb: 'Overview', roles: ['SuperAdmin'] },
+        data: { breadcrumb: 'Numbers', roles: ['SuperAdmin'] },
         loadComponent: () =>
-          import('./features/overview/overview.component').then(
-            (m) => m.OverviewComponent,
-          ),
-      },
-      // Anyone with the old link or a stale bookmark lands on the new page.
-      { path: 'dashboard', pathMatch: 'full', redirectTo: 'overview' },
-      {
-        // Every teacher on the three usage axes. Replaces /activity, which only
-        // ever reported last-login.
-        path: 'usage',
-        canActivate: [permissionGuard],
-        data: { breadcrumb: 'Usage', roles: ['SuperAdmin'] },
-        loadComponent: () =>
-          import('./features/usage/usage-grid.component').then(
-            (m) => m.UsageGridComponent,
-          ),
+          import('./features/numbers/numbers.component').then((m) => m.NumbersComponent),
       },
       {
-        path: 'sales',
-        canActivate: [permissionGuard],
-        data: { breadcrumb: 'Sales', roles: ['SuperAdmin'] },
-        loadComponent: () =>
-          import('./features/sales/sales.component').then((m) => m.SalesComponent),
-      },
-      {
+        // THE ONE TEACHER LIST. Four screens used to list teachers; this replaced
+        // all of them, with views as preset filters over the same rows.
         path: 'teachers',
-        loadChildren: () =>
-          import('./features/teachers/teachers.routes').then(
-            (m) => m.TEACHERS_ROUTES,
+        canActivate: [permissionGuard],
+        data: { breadcrumb: 'Teachers', roles: ['SuperAdmin'] },
+        loadComponent: () =>
+          import('./features/teachers-list/teachers-list.component').then(
+            (m) => m.TeachersListComponent,
           ),
       },
+      // The teacher FORMS and admin panels stay — they are where the actions live,
+      // and the detail panel links to them.
+      {
+        path: 'teacher',
+        loadChildren: () =>
+          import('./features/teachers/teachers.routes').then((m) => m.TEACHERS_ROUTES),
+      },
+      // Old links and bookmarks land on the list rather than a 404. NOTE: redirectTo
+      // cannot carry a query string — Angular treats it as a path segment — so these
+      // land on the default view ("to contact") rather than a specific one.
+      { path: 'overview', pathMatch: 'full', redirectTo: 'teachers' },
+      { path: 'dashboard', pathMatch: 'full', redirectTo: 'numbers' },
+      { path: 'usage', pathMatch: 'full', redirectTo: 'teachers' },
+      { path: 'activity', pathMatch: 'full', redirectTo: 'teachers' },
       {
         path: 'centers',
         loadChildren: () =>

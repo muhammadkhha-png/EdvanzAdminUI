@@ -49,7 +49,8 @@ export type UsageModule =
   | 'OnlineExams'
   | 'ExamsHomework'
   | 'Messaging'
-  | 'ParentPortal';
+  | 'ParentPortal'
+  | 'EventPayments';
 
 /** One teacher on the usage grid. */
 export interface TeacherUsage {
@@ -83,6 +84,16 @@ export interface TeacherUsage {
   depth: UsageDepth;
   modules: UsageModule[];
   modulesAllTime: UsageModule[];
+
+  /** What they are entitled to: module grants plus the plan-derived parent portal. */
+  featuresEntitled: UsageModule[];
+  /** Entitled and never opened — the gap worth a call. */
+  featuresNeverUsed: UsageModule[];
+  /** Used once, then dropped. A different conversation from never adopting it. */
+  featuresLapsed: UsageModule[];
+  /** The "4" and the "7" in "using 4 of 7 features they pay for". */
+  featuresAdoptedCount: number;
+  featuresEntitledCount: number;
 
   operators: OperatorMix;
   lastTeacherActivityAt: string | null;
@@ -171,6 +182,39 @@ export interface InsightCard {
   teachers: InsightTeacher[];
 }
 
+/** One row of the feature-adoption table on the Numbers page. */
+export interface FeatureAdoption {
+  feature: UsageModule;
+  /** Teachers entitled to it — adoption is only ever counted over these. */
+  entitled: number;
+  usingNow: number;
+  everUsed: number;
+  /** Entitled and never opened. The upsell and onboarding surface. */
+  neverUsed: number;
+}
+
+/** Subscribers on one plan. */
+export interface PlanBreakdown {
+  plan: string;
+  teachers: number;
+  active: number;
+  /** Mean share of entitled features actually adopted, 0-100. */
+  adoptionPercent: number;
+}
+
+/** The landing page: how the subscribed base is doing. */
+export interface AdminNumbers {
+  generatedAt: string;
+  subscribedOnly: boolean;
+  teachers: number;
+  active: number;
+  activePrevious: number;
+  setUp: number;
+  needAttention: number;
+  featureAdoption: FeatureAdoption[];
+  byPlan: PlanBreakdown[];
+}
+
 /** ONE teacher to call: the reason, the evidence, and what to do about it. */
 export interface CallListItem {
   teacherId: number;
@@ -196,7 +240,10 @@ export interface CallListItem {
 /** The ranked, deduplicated call list plus its one line of context. */
 export interface CallList {
   generatedAt: string;
+  /** Across every reason — what the "Everything" chip shows, and the way out of a filter. */
   totalNeedingContact: number;
+  /** Matching the selected reason. Paging counts against THIS, not the total. */
+  totalInView: number;
   totalTeachers: number;
   live: number;
   items: CallListItem[];
@@ -241,6 +288,12 @@ export interface UsageQuery {
   registeredTo?: string;
   /** Only teachers whose current subscription started within this many days. */
   subscribedWithinDays?: number;
+  /** true = active in the last 30 days; false = nothing at all. */
+  isActive?: boolean;
+  /** Only teachers with a live subscription. */
+  subscribedOnly?: boolean;
+  /** Entitled to this feature and never opened it. */
+  neverUsedFeature?: UsageModule;
   sortBy?: 'LastActivity' | 'ActiveDays30' | 'TotalWrites30' | 'StudentCount' | 'RegisteredAt' | 'Name';
   sortDirection?: 'Asc' | 'Desc';
 }
@@ -284,8 +337,17 @@ export class AdminInsightsService {
   private readonly http = inject(HttpClient);
   private readonly base = `${environment.apiBaseUrl}/admin/insights`;
 
+  /** THE NUMBERS — the landing page. Subscribed teachers unless told otherwise. */
+  getNumbers(subscribedOnly = true): Observable<AdminNumbers> {
+    return this.http
+      .get<ApiResult<AdminNumbers>>(`${this.base}/numbers`, {
+        params: new HttpParams().set('subscribedOnly', subscribedOnly),
+      })
+      .pipe(map((r) => r.data));
+  }
+
   /**
-   * THE CALL LIST — the landing page.
+   * THE CALL LIST.
    *
    * One ranked list, each teacher exactly once under their most urgent reason.
    * `reason` narrows it to a single reason; `take` caps how many come back.

@@ -46,7 +46,7 @@ import { SubscriptionStatusBadgeComponent } from '../subscription-panel/subscrip
           <li class="nav-item">
             <a
               class="nav-link"
-              [routerLink]="['/teachers', t.id]"
+              [routerLink]="['/teacher', t.id]"
               routerLinkActive="active"
               [routerLinkActiveOptions]="{ exact: true }"
             >
@@ -56,7 +56,7 @@ import { SubscriptionStatusBadgeComponent } from '../subscription-panel/subscrip
           <li class="nav-item">
             <a
               class="nav-link"
-              [routerLink]="['/teachers', t.id, 'usage']"
+              [routerLink]="['/teacher', t.id, 'usage']"
               routerLinkActive="active"
               >Usage</a
             >
@@ -64,7 +64,7 @@ import { SubscriptionStatusBadgeComponent } from '../subscription-panel/subscrip
           <li class="nav-item">
             <a
               class="nav-link"
-              [routerLink]="['/teachers', t.id, 'subscription']"
+              [routerLink]="['/teacher', t.id, 'subscription']"
               routerLinkActive="active"
             >
               Subscription
@@ -73,7 +73,7 @@ import { SubscriptionStatusBadgeComponent } from '../subscription-panel/subscrip
           <li class="nav-item">
             <a
               class="nav-link"
-              [routerLink]="['/teachers', t.id, 'modules']"
+              [routerLink]="['/teacher', t.id, 'modules']"
               routerLinkActive="active"
             >
               Modules

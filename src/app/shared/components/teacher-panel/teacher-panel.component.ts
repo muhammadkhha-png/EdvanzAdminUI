@@ -141,9 +141,37 @@ import { formatDate, formatDateTime, timeAgo } from '../../utils/time-format';
             </ul>
           </section>
 
-          <!-- ── What they use ──────────────────────────────────────────── -->
+          <!-- ── What they pay for vs what they use ─────────────────────── -->
           <section class="sec">
-            <h3>What they use</h3>
+            <h3>
+              Features
+              <span class="h-sub tnum">
+                using {{ d.summary.featuresAdoptedCount }} of
+                {{ d.summary.featuresEntitledCount }} they pay for
+              </span>
+            </h3>
+
+            <!-- Entitled and never opened is the gap, and the reason to call. It is
+                 listed FIRST because it is the only part of this section anyone acts on. -->
+            @if (d.summary.featuresNeverUsed.length) {
+              <p class="never">
+                <strong>Never opened:</strong>
+                {{ featureList(d.summary.featuresNeverUsed) }}
+              </p>
+            }
+            @if (d.summary.featuresLapsed.length) {
+              <p class="lapsed">
+                <strong>Stopped using:</strong> {{ featureList(d.summary.featuresLapsed) }}
+              </p>
+            }
+            @if (!d.summary.featuresNeverUsed.length && !d.summary.featuresLapsed.length) {
+              <p class="all-in">Using everything they have.</p>
+            }
+          </section>
+
+          <!-- ── How much of each ───────────────────────────────────────── -->
+          <section class="sec">
+            <h3>Activity by feature, last 30 days</h3>
             @if (d.moduleBreakdown30.length) {
               @for (m of d.moduleBreakdown30; track m.key) {
                 <div class="bar-row">
@@ -156,9 +184,6 @@ import { formatDate, formatDateTime, timeAgo } from '../../utils/time-format';
               }
             } @else {
               <p class="none">Nothing used in the last 30 days.</p>
-            }
-            @if (lapsed().length) {
-              <p class="lapsed">Stopped using: {{ lapsed().join(', ') }}</p>
             }
           </section>
 
@@ -240,7 +265,7 @@ import { formatDate, formatDateTime, timeAgo } from '../../utils/time-format';
           </section>
 
           <footer class="foot">
-            <a class="btn btn-outline-secondary btn-sm" [routerLink]="['/teachers', teacherId()]">
+            <a class="btn btn-outline-secondary btn-sm" [routerLink]="['/teacher', teacherId()]">
               Open full record
             </a>
             <button
@@ -493,10 +518,29 @@ import { formatDate, formatDateTime, timeAgo } from '../../utils/time-format';
         text-align: right;
         color: var(--ink-2);
       }
-      .lapsed {
-        margin: var(--s-2) 0 0;
-        font-size: var(--t-xs);
+      .h-sub {
+        margin-left: var(--s-2);
+        font-weight: 400;
         color: var(--ink-3);
+      }
+      /* The gap is the only thing in this panel that earns a warning colour — it is
+         the single line that turns the record into a phone call. */
+      .never {
+        margin: 0 0 var(--s-2);
+        font-size: var(--t-sm);
+        color: var(--risk);
+        line-height: 1.5;
+      }
+      .lapsed {
+        margin: 0;
+        font-size: var(--t-sm);
+        color: var(--ink-3);
+        line-height: 1.5;
+      }
+      .all-in {
+        margin: 0;
+        font-size: var(--t-sm);
+        color: var(--live);
       }
       .none {
         margin: 0;
@@ -683,6 +727,10 @@ export class TeacherPanelComponent {
     return MODULE_NAMES[key] ?? key;
   }
 
+  protected featureList(keys: string[]): string {
+    return keys.map((k) => MODULE_NAMES[k] ?? k).join(', ');
+  }
+
   protected seen(lastActivityAt: string | null, lastLoginAt: string | null): string {
     const latest = [lastActivityAt, lastLoginAt].filter((v): v is string => !!v).sort().pop();
     return latest ? timeAgo(latest) : 'never seen';
@@ -734,4 +782,5 @@ const MODULE_NAMES: Record<string, string> = {
   ExamsHomework: 'Exams & homework',
   Messaging: 'Messaging',
   ParentPortal: 'Parent portal',
+  EventPayments: 'Event payments',
 };

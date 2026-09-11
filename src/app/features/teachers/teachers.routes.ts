@@ -6,14 +6,10 @@ import { permissionGuard } from '../../core/guards/permission.guard';
  * subscription and modules are each independently permission-guarded.
  */
 export const TEACHERS_ROUTES: Routes = [
-  {
-    path: '',
-    loadComponent: () =>
-      import('./teacher-list/teacher-list.component').then(
-        (m) => m.TeacherListComponent,
-      ),
-    data: { breadcrumb: 'Teachers' },
-  },
+  // The old flat teacher list lived here. It is superseded by the one list at
+  // /teachers (with views + the detail panel); this path now only carries the
+  // action destinations the panel links out to.
+  { path: '', pathMatch: 'full', redirectTo: '/teachers' },
   {
     path: 'new',
     loadComponent: () =>
