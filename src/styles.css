@@ -1,78 +1,330 @@
-/* Global theme tokens + light Bootstrap overrides. */
+/* ═══════════════════════════════════════════════════════════════════════════
+   EDVANZ ADMIN — DESIGN TOKENS
+   ═══════════════════════════════════════════════════════════════════════════
+
+   The organising device on this console is the RULED ROW, not the card.
+   Tutors live in attendance registers and cash books; the admin looking at them
+   is reading a register too. So: hairline rules, tabular numbers, one accent,
+   and shadows reserved for things that genuinely float (drawer, modal, popover).
+
+   Deliberately NOT a kit of identical rounded cards with the same soft shadow
+   under each — that flattens hierarchy and makes every screen look alike.
+
+   TYPEFACE: the system stack, chosen rather than defaulted to. Teacher names on
+   this platform are Arabic; a Latin webfont would force fallback rendering on
+   exactly the content that matters most, and the audience is often on field
+   mobile data. The system stack renders both scripts natively per platform.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 :root {
-  --edvanz-primary: #2563eb;
-  --edvanz-sidebar: #0f172a;
-  --edvanz-bg: #f1f5f9;
-  --edvanz-border: #e5e7eb;
-  --edvanz-muted: #6b7280;
+  /* ── Ink & paper ─────────────────────────────────────────────────────── */
+  --ink: #12161f;           /* near-black with a blue cast */
+  --ink-2: #3d4657;         /* secondary text */
+  --ink-3: #6b7485;         /* muted / captions */
+  --ink-4: #9aa2b1;         /* disabled, placeholder */
+  --paper: #f6f7f9;         /* app background — cool, not cream */
+  --surface: #ffffff;
+  --surface-2: #fbfcfd;     /* zebra / inset */
+  --rule: #e4e7ec;          /* hairline */
+  --rule-strong: #cfd4dd;
+
+  /* ── Accent (the existing Edvanz blue, deepened for contrast on white) ── */
+  --accent: #1d4ed8;
+  --accent-hover: #1740b6;
+  --accent-soft: #eaf0ff;
+  --accent-ink: #16308a;
+
+  /* ── Signal ramp — the three states this console exists to separate ──── */
+  --live: #0f7b6c;          /* working the product */
+  --live-soft: #e3f4f0;
+  --risk: #b45309;          /* slipping */
+  --risk-soft: #fdf1e3;
+  --gone: #a3123c;          /* stopped / never started */
+  --gone-soft: #fdeaef;
+  --quiet: #6b7485;         /* no signal either way */
+  --quiet-soft: #eef0f3;
+
+  /* ── Type scale (Elements of Typographic Style, 1.25 minor third) ────── */
+  --font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
+          'Noto Sans Arabic', Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  --t-xs: 0.75rem;     /* 12px — dense table meta */
+  --t-sm: 0.8125rem;   /* 13px — table body */
+  --t-base: 0.9375rem; /* 15px — UI default */
+  --t-md: 1.0625rem;   /* 17px */
+  --t-lg: 1.375rem;    /* 22px — section heads */
+  --t-xl: 1.875rem;    /* 30px — page title */
+  --t-num: 2.25rem;    /* 36px — the one big number */
+
+  /* ── Spacing (4px base) ──────────────────────────────────────────────── */
+  --s-1: 0.25rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1rem;
+  --s-5: 1.5rem;
+  --s-6: 2rem;
+  --s-7: 3rem;
+
+  /* ── Radius — modest, and varied by role rather than uniform ─────────── */
+  --r-sm: 4px;   /* chips, inputs */
+  --r-md: 8px;   /* panels */
+  --r-lg: 14px;  /* floating surfaces */
+
+  /* ── Elevation — only for things that actually float ─────────────────── */
+  --lift-pop: 0 4px 16px rgba(18, 22, 31, 0.12);
+  --lift-modal: 0 24px 60px rgba(18, 22, 31, 0.28);
+
+  /* ── Layering ────────────────────────────────────────────────────────── */
+  --z-sticky: 20;
+  --z-drawer-backdrop: 1040;
+  --z-drawer: 1050;
+  --z-modal-backdrop: 1080;
+  --z-modal: 1085;
+  --z-toast: 1090;
+
+  /* ── Legacy aliases — older components still reference these ─────────── */
+  --edvanz-primary: var(--accent);
+  --edvanz-sidebar: var(--ink);
+  --edvanz-bg: var(--paper);
+  --edvanz-border: var(--rule);
+  --edvanz-muted: var(--ink-3);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BASE
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 html,
 body {
   height: 100%;
   margin: 0;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  color: #0f172a;
+  font-family: var(--font);
+  font-size: var(--t-base);
+  color: var(--ink);
+  background: var(--paper);
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Prevent stray horizontal scroll on mobile (e.g. the off-canvas sidebar sitting
-   at translateX(-100%) while closed). Wide content still scrolls inside its own
-   .table-responsive container. */
+/* The off-canvas drawer parks at translateX(-100%) while closed. */
 body {
   overflow-x: hidden;
 }
 
-.btn-primary {
-  --bs-btn-bg: var(--edvanz-primary);
-  --bs-btn-border-color: var(--edvanz-primary);
-  --bs-btn-hover-bg: #1d4ed8;
-  --bs-btn-hover-border-color: #1d4ed8;
+/* Numbers that stack in columns must align on the digit, or a register is
+   unreadable. Applied broadly because nearly every number here is in a column. */
+table,
+.tnum {
+  font-variant-numeric: tabular-nums;
 }
 
-.page-header h2 {
+h1, h2, h3, h4 {
   font-weight: 600;
+  letter-spacing: -0.011em;
+  color: var(--ink);
 }
 
-.table > :not(caption) > * > * {
-  padding: 0.75rem 0.5rem;
+a {
+  color: var(--accent);
+  text-underline-offset: 2px;
 }
 
-/* Tighter, smaller table cells on phones so wide admin tables stay legible. */
-@media (max-width: 575.98px) {
-  .table > :not(caption) > * > * {
-    padding: 0.55rem 0.4rem;
-    font-size: 0.9rem;
+/* Keyboard focus must always be visible — this console is driven by people who
+   live in it all day and will tab through it. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
-/* ── Infinite-scroll list footer (shared by every admin list page) ───────── */
-/* Zero-height sentinel the InfiniteScrollDirective observes at the list end. */
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAGE FURNITURE
+   Previously copy-pasted into ~8 component stylesheets; it lives here now.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-4);
+  margin-bottom: var(--s-5);
+  flex-wrap: wrap;
+}
+
+.page-header h2 {
+  font-size: var(--t-xl);
+  font-weight: 600;
+  margin: 0 0 var(--s-1);
+  line-height: 1.15;
+}
+
+.page-header p {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--t-base);
+  max-width: 62ch;
+}
+
+/* A panel is a bounded region of the register. One hairline, no shadow. */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-md);
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  border-bottom: 1px solid var(--rule);
+}
+
+.panel-head h3 {
+  margin: 0;
+  font-size: var(--t-md);
+  font-weight: 600;
+}
+
+.panel-body {
+  padding: var(--s-4);
+}
+
+.muted {
+  color: var(--ink-3);
+}
+
+.small {
+  font-size: var(--t-sm);
+}
+
+/* Teacher codes are 8-digit identifiers people scan by eye and read aloud over
+   the phone. Monospace is doing a job here, not decorating. */
+.code {
+  font-family: var(--font-mono);
+  font-size: 0.8125em;
+  letter-spacing: 0.02em;
+  color: var(--ink-2);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BOOTSTRAP OVERRIDES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.btn {
+  --bs-btn-font-size: var(--t-base);
+  --bs-btn-border-radius: var(--r-sm);
+  font-weight: 500;
+}
+
+.btn-primary {
+  --bs-btn-bg: var(--accent);
+  --bs-btn-border-color: var(--accent);
+  --bs-btn-hover-bg: var(--accent-hover);
+  --bs-btn-hover-border-color: var(--accent-hover);
+}
+
+.btn-outline-secondary {
+  --bs-btn-color: var(--ink-2);
+  --bs-btn-border-color: var(--rule-strong);
+  --bs-btn-hover-bg: var(--surface-2);
+  --bs-btn-hover-color: var(--ink);
+  --bs-btn-hover-border-color: var(--ink-4);
+}
+
+.form-control,
+.form-select {
+  font-size: var(--t-base);
+  border-color: var(--rule-strong);
+  border-radius: var(--r-sm);
+  color: var(--ink);
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.form-label {
+  font-size: var(--t-sm);
+  font-weight: 500;
+  color: var(--ink-2);
+  margin-bottom: var(--s-1);
+}
+
+/* Table cells sit on hairlines, not on fills. */
+.table {
+  --bs-table-border-color: var(--rule);
+  margin-bottom: 0;
+  color: var(--ink);
+}
+
+.table > :not(caption) > * > * {
+  padding: var(--s-3) var(--s-2);
+  font-size: var(--t-sm);
+}
+
+.table > thead > tr > th {
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--ink-3);
+  border-bottom-color: var(--rule-strong);
+  white-space: nowrap;
+}
+
+@media (max-width: 575.98px) {
+  .table > :not(caption) > * > * {
+    padding: var(--s-2) var(--s-1);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INFINITE-SCROLL LIST FOOTER (shared by every list page)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 .infinite-scroll-sentinel {
   height: 1px;
   width: 100%;
 }
+
 .list-footer {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  padding: 0.9rem 0;
-  color: var(--edvanz-muted, #6b7280);
-  font-size: 0.875rem;
+  gap: var(--s-2);
+  padding: var(--s-4) 0;
+  color: var(--ink-3);
+  font-size: var(--t-sm);
 }
+
 .list-footer .spinner-sm {
   width: 18px;
   height: 18px;
-  border: 2px solid var(--edvanz-border, #dfe3ea);
-  border-top-color: var(--edvanz-primary, #2563eb);
+  border: 2px solid var(--rule);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
+
 .list-count {
-  padding-top: 0.5rem;
-  color: var(--edvanz-muted, #6b7280);
-  font-size: 0.8125rem;
+  padding-top: var(--s-2);
+  color: var(--ink-3);
+  font-size: var(--t-xs);
 }
+
 @keyframes spin {
   to {
     transform: rotate(360deg);

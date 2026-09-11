@@ -2,9 +2,8 @@ import { Routes } from '@angular/router';
 import { permissionGuard } from '../../core/guards/permission.guard';
 
 /**
- * Teacher area. The details shell nests three tabbed child routes; the
- * subscription and modules tabs are the spec's "Subscriptions" and "Modules"
- * protected pages, each independently permission-guarded.
+ * Teacher area. The details shell nests the tabbed child routes; usage,
+ * subscription and modules are each independently permission-guarded.
  */
 export const TEACHERS_ROUTES: Routes = [
   {
@@ -44,6 +43,17 @@ export const TEACHERS_ROUTES: Routes = [
         loadComponent: () =>
           import('./teacher-details/teacher-info.component').then(
             (m) => m.TeacherInfoComponent,
+          ),
+      },
+      {
+        // Teacher 360 — the usage tab. Everything about whether this account is
+        // actually being used, in one place.
+        path: 'usage',
+        canActivate: [permissionGuard],
+        data: { breadcrumb: 'Usage', roles: ['SuperAdmin'] },
+        loadComponent: () =>
+          import('../teacher-360/teacher-usage-page.component').then(
+            (m) => m.TeacherUsagePageComponent,
           ),
       },
       {

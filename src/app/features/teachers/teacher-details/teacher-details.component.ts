@@ -56,6 +56,14 @@ import { SubscriptionStatusBadgeComponent } from '../subscription-panel/subscrip
           <li class="nav-item">
             <a
               class="nav-link"
+              [routerLink]="['/teachers', t.id, 'usage']"
+              routerLinkActive="active"
+              >Usage</a
+            >
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link"
               [routerLink]="['/teachers', t.id, 'subscription']"
               routerLinkActive="active"
             >

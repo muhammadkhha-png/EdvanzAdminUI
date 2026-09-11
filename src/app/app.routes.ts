@@ -24,14 +24,37 @@ export const APP_ROUTES: Routes = [
         (m) => m.MainLayoutComponent,
       ),
     children: [
-      { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
+      { path: '', pathMatch: 'full', redirectTo: 'overview' },
       {
-        path: 'dashboard',
-        data: { breadcrumb: 'Dashboard' },
+        // The worklist. Replaces the old four-KPI dashboard, which could only
+        // count teachers and subscriptions and never said who needed a call.
+        path: 'overview',
+        canActivate: [permissionGuard],
+        data: { breadcrumb: 'Overview', roles: ['SuperAdmin'] },
         loadComponent: () =>
-          import('./features/dashboard/dashboard.component').then(
-            (m) => m.DashboardComponent,
+          import('./features/overview/overview.component').then(
+            (m) => m.OverviewComponent,
           ),
+      },
+      // Anyone with the old link or a stale bookmark lands on the new page.
+      { path: 'dashboard', pathMatch: 'full', redirectTo: 'overview' },
+      {
+        // Every teacher on the three usage axes. Replaces /activity, which only
+        // ever reported last-login.
+        path: 'usage',
+        canActivate: [permissionGuard],
+        data: { breadcrumb: 'Usage', roles: ['SuperAdmin'] },
+        loadComponent: () =>
+          import('./features/usage/usage-grid.component').then(
+            (m) => m.UsageGridComponent,
+          ),
+      },
+      {
+        path: 'sales',
+        canActivate: [permissionGuard],
+        data: { breadcrumb: 'Sales', roles: ['SuperAdmin'] },
+        loadComponent: () =>
+          import('./features/sales/sales.component').then((m) => m.SalesComponent),
       },
       {
         path: 'teachers',
