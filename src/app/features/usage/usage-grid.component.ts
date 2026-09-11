@@ -1,6 +1,6 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import {
   AdminInsightsService,
@@ -11,6 +11,7 @@ import {
 import { InfiniteScrollDirective } from '../../shared/directives/infinite-scroll.directive';
 import { DayStripComponent } from '../../shared/components/day-strip/day-strip.component';
 import { UsageBadgeComponent } from '../../shared/components/usage-badge/usage-badge.component';
+import { TeacherPanelComponent } from '../../shared/components/teacher-panel/teacher-panel.component';
 import { ToastService } from '../../core/services/toast.service';
 import { timeAgo } from '../../shared/utils/time-format';
 
@@ -32,11 +33,11 @@ const PAGE_SIZE = 25;
   selector: 'app-usage-grid',
   standalone: true,
   imports: [
-    RouterLink,
     ReactiveFormsModule,
     InfiniteScrollDirective,
     DayStripComponent,
     UsageBadgeComponent,
+    TeacherPanelComponent,
   ],
   template: `
     <div class="page-header">
@@ -150,12 +151,15 @@ const PAGE_SIZE = 25;
         </div>
       } @else {
         @for (t of rows(); track t.teacherId) {
-          <a class="row" [routerLink]="['/teachers', t.teacherId]">
+          <button type="button" class="row" (click)="open(t.teacherId)">
             <!-- Identity -->
             <span class="cell who">
               <span class="t-name">{{ t.fullName }}</span>
               <span class="t-meta">
                 <span class="code">{{ t.teacherCode }}</span>
+                @if (t.phoneNumber) {
+                  <span class="code">{{ t.phoneNumber }}</span>
+                }
                 @if (t.salesRepName) {
                   <span class="rep">{{ t.salesRepName }}</span>
                 }
@@ -206,7 +210,7 @@ const PAGE_SIZE = 25;
               <app-day-strip [values]="t.sparkline30" />
               <span class="sub">{{ lastSeen(t) }}</span>
             </span>
-          </a>
+          </button>
         }
       }
 
@@ -226,6 +230,12 @@ const PAGE_SIZE = 25;
 
     @if (rows().length) {
       <p class="list-count">Showing {{ rows().length }} of {{ total() }} teachers</p>
+    }
+
+    <!-- The panel slides OVER the list. The filter, the scroll position and the
+         page you were on all survive closing it. -->
+    @if (selected(); as id) {
+      <app-teacher-panel [teacherId]="id" (closed)="close()" />
     }
   `,
   styles: [
@@ -276,6 +286,16 @@ const PAGE_SIZE = 25;
         border-bottom: 1px solid var(--rule);
         text-decoration: none;
         color: inherit;
+        /* It is a <button> now so it opens the panel rather than navigating —
+           these reset the native chrome back to a plain row. */
+        width: 100%;
+        background: none;
+        border-left: 0;
+        border-right: 0;
+        border-top: 0;
+        text-align: left;
+        font: inherit;
+        cursor: pointer;
       }
       .row:last-of-type {
         border-bottom: 0;
@@ -425,6 +445,7 @@ const PAGE_SIZE = 25;
 export class UsageGridComponent implements OnInit {
   private readonly insights = inject(AdminInsightsService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly toast = inject(ToastService);
 
   protected readonly rows = signal<TeacherUsage[]>([]);
@@ -433,6 +454,8 @@ export class UsageGridComponent implements OnInit {
   protected readonly reps = signal<SalesRep[]>([]);
   protected readonly activeCard = signal<string | null>(null);
   protected readonly exporting = signal(false);
+  /** Which teacher's panel is open. Null = list only. */
+  protected readonly selected = signal<number | null>(null);
   protected readonly skeletonRows = [1, 2, 3, 4, 5, 6, 7, 8];
 
   protected readonly search = new FormControl('', { nonNullable: true });
@@ -444,6 +467,7 @@ export class UsageGridComponent implements OnInit {
   protected readonly subscribed = new FormControl('', { nonNullable: true });
 
   private page = 1;
+  private loadedOnce = false;
 
   protected readonly hasMore = computed(() => this.rows().length < this.total());
 
@@ -462,8 +486,17 @@ export class UsageGridComponent implements OnInit {
 
     // Arriving from an insight card's "see all" pins the page to that list.
     this.route.queryParamMap.subscribe((params) => {
-      this.activeCard.set(params.get('card'));
-      this.reload();
+      const teacher = params.get('teacher');
+      this.selected.set(teacher ? Number(teacher) : null);
+
+      // Opening or closing the panel must NOT refetch the list — that would
+      // rebuild the rows under the reader and throw away their scroll position.
+      const card = params.get('card');
+      if (card !== this.activeCard() || !this.loadedOnce) {
+        this.activeCard.set(card);
+        this.loadedOnce = true;
+        this.reload();
+      }
     });
 
     for (const control of [
@@ -562,6 +595,29 @@ export class UsageGridComponent implements OnInit {
         this.toast.success('Export ready.');
       },
       error: () => this.exporting.set(false),
+    });
+  }
+
+  /** Opens the detail panel over the list, without touching the filters. */
+  protected open(teacherId: number): void {
+    this.selected.set(teacherId);
+    // Reflected in the URL so the panel survives a refresh and can be shared —
+    // merged, never replaced, so every active filter stays in the query string.
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { teacher: teacherId },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
+  protected close(): void {
+    this.selected.set(null);
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { teacher: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
     });
   }
 

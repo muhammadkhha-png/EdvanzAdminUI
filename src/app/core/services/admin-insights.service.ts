@@ -171,6 +171,38 @@ export interface InsightCard {
   teachers: InsightTeacher[];
 }
 
+/** ONE teacher to call: the reason, the evidence, and what to do about it. */
+export interface CallListItem {
+  teacherId: number;
+  fullName: string;
+  teacherCode: string;
+  /** The number to ring. The list is useless without it. */
+  phoneNumber: string | null;
+  salesRepName: string | null;
+  /** 1 = call first. */
+  priority: number;
+  reasonKey: string;
+  reasonLabel: string;
+  /** The evidence with the real numbers in it. */
+  why: string;
+  /** The instruction — what the old insight cards never said. */
+  action: string;
+  severity: 'attention' | 'warning' | 'info';
+  lastActivityAt: string | null;
+  studentCount: number;
+  noteCount: number;
+}
+
+/** The ranked, deduplicated call list plus its one line of context. */
+export interface CallList {
+  generatedAt: string;
+  totalNeedingContact: number;
+  totalTeachers: number;
+  live: number;
+  items: CallListItem[];
+  reasonCounts: BandCount[];
+}
+
 /** The admin landing page in one call. */
 export interface AdminOverview {
   generatedAt: string;
@@ -252,7 +284,21 @@ export class AdminInsightsService {
   private readonly http = inject(HttpClient);
   private readonly base = `${environment.apiBaseUrl}/admin/insights`;
 
-  /** The landing page: headline counts, axis distributions and the named cards. */
+  /**
+   * THE CALL LIST — the landing page.
+   *
+   * One ranked list, each teacher exactly once under their most urgent reason.
+   * `reason` narrows it to a single reason; `take` caps how many come back.
+   */
+  getCallList(reason: string | null, take: number): Observable<CallList> {
+    let params = new HttpParams().set('take', take);
+    if (reason) params = params.set('reason', reason);
+    return this.http
+      .get<ApiResult<CallList>>(`${this.base}/call-list`, { params })
+      .pipe(map((r) => r.data));
+  }
+
+  /** Platform distributions — secondary, fetched only when asked for. */
   getOverview(): Observable<AdminOverview> {
     return this.http
       .get<ApiResult<AdminOverview>>(`${this.base}/overview`)

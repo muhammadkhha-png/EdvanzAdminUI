@@ -1,198 +1,172 @@
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import {
   AdminInsightsService,
   AdminOverview,
   BandCount,
+  CallList,
 } from '../../core/services/admin-insights.service';
-import { UsageBadgeComponent } from '../../shared/components/usage-badge/usage-badge.component';
-import { formatDate, timeAgo } from '../../shared/utils/time-format';
+import { TeacherPanelComponent } from '../../shared/components/teacher-panel/teacher-panel.component';
+import { timeAgo } from '../../shared/utils/time-format';
 
 /**
- * THE WORKLIST — the landing page.
+ * THE CALL LIST — the landing page, and the whole point of the console.
  *
- * Its job is not to be admired; it is to answer "who do I call today?". So it
- * opens with one sentence of plain numbers rather than a row of identical KPI
- * tiles, and everything below it is a NAMED LIST. A count nobody can act on is
- * not an insight.
+ * This replaced nine insight cards shown side by side. Across 171 teachers they
+ * held 241 entries, the same teacher sat on several of them, nothing said which
+ * to work first, and no card said what to DO. The person using it called it busy
+ * and hard to act on, and they were right: it was a report, not a list.
  *
- * The old dashboard showed four counts fetched by four `pageSize=1` calls read
- * for their totals. It could not distinguish a teacher running their whole
- * business on Edvanz from one who logged in once and marked nothing.
+ * What it is now: ONE ranked list. Each teacher appears exactly once, numbered,
+ * with the evidence in plain words, an instruction, and a phone number. You work
+ * it from the top and stop when you run out of time.
+ *
+ * Everything that is not a call was pushed out of the way. The distributions
+ * still exist one tap down, because they answer a real question about once a
+ * month and were crowding out the daily one.
  */
 @Component({
   selector: 'app-overview',
   standalone: true,
-  imports: [RouterLink, UsageBadgeComponent],
+  imports: [RouterLink, TeacherPanelComponent],
   template: `
     <div class="page-header">
       <div>
-        <h2>Who needs a call</h2>
-        <p>
-          Real usage, measured from what people actually did — not from logins or
-          row counts.
-        </p>
+        <h2>Call these teachers</h2>
+        <p>Worked from the top. Each teacher appears once, under the thing that matters most.</p>
       </div>
-      @if (generatedAt(); as at) {
-        <span class="freshness" [title]="'Oldest figure computed ' + formatDate(oldestAt())">
-          Updated {{ timeAgo(at) }}
-        </span>
-      }
     </div>
 
     @if (data(); as d) {
-      <!-- ── The headline, as a sentence rather than a tile rack ───────── -->
-      <section class="headline panel">
-        <div class="headline-main">
-          <span class="big tnum">{{ d.totals.live }}</span>
-          <span class="of tnum">of {{ d.totals.teachers }}</span>
-          <span class="headline-label">
-            teachers did something real in the last 30 days
-          </span>
-        </div>
+      <p class="context">
+        <strong class="tnum">{{ d.totalNeedingContact }}</strong> need a call ·
+        <span class="tnum">{{ d.live }}</span> of {{ d.totalTeachers }} active in the last 30 days
+        <a routerLink="/usage" class="ctx-link">See everyone</a>
+      </p>
 
-        <div class="headline-meta">
-          @if (delta() !== null) {
-            <span class="delta" [attr.data-dir]="delta()! >= 0 ? 'up' : 'down'">
-              {{ delta()! >= 0 ? '+' : '' }}{{ delta() }} vs the month before
-            </span>
-          }
-          <a routerLink="/usage" class="see-grid">See all teachers</a>
-        </div>
-
-        <dl class="headline-figures">
-          <div>
-            <dt>Set up properly</dt>
-            <dd class="tnum">{{ d.totals.withRealData }}</dd>
-            <p>Students assigned to a session that has class days</p>
-          </div>
-          <div>
-            <dt>Went quiet</dt>
-            <dd class="tnum">{{ d.totals.dormant }}</dd>
-            <p>Worked before, nothing in the last 30 days</p>
-          </div>
-          <div>
-            <dt>Never started</dt>
-            <dd class="tnum">{{ d.totals.neverStarted }}</dd>
-            <p>Registered, no real activity ever recorded</p>
-          </div>
-          <div>
-            <dt>Assistants only</dt>
-            <dd class="tnum">{{ d.totals.assistantOnly }}</dd>
-            <p>Staff are working, the teacher has stopped</p>
-          </div>
-        </dl>
-      </section>
-
-      <!-- ── The named lists ───────────────────────────────────────────── -->
-      @if (d.insights.length) {
-        <div class="cards">
-          @for (card of d.insights; track card.key) {
-            <section class="card panel" [attr.data-severity]="card.severity">
-              <header class="card-head">
-                <h3>{{ title(card.key) }}</h3>
-                <span class="count tnum">{{ card.totalCount }}</span>
-              </header>
-              <p class="card-why">{{ card.description }}</p>
-
-              <ul class="people">
-                @for (t of card.teachers; track t.teacherId) {
-                  <li>
-                    <a class="person" [routerLink]="['/teachers', t.teacherId]">
-                      <span class="name">{{ t.fullName }}</span>
-                      @if (t.detail) {
-                        <span class="reason">{{ t.detail }}</span>
-                      }
-                    </a>
-                    @if (t.phoneNumber) {
-                      <a class="call" [href]="'tel:' + t.phoneNumber" [title]="'Call ' + t.phoneNumber">
-                        {{ t.phoneNumber }}
-                      </a>
-                    }
-                  </li>
-                }
-              </ul>
-
-              @if (card.totalCount > card.teachers.length) {
-                <a class="see-all" [routerLink]="['/usage']" [queryParams]="{ card: card.key }">
-                  See all {{ card.totalCount }}
-                </a>
-              }
-            </section>
+      @if (d.reasonCounts.length > 1) {
+        <div class="chips" role="group" aria-label="Filter by reason">
+          <button type="button" class="chip" [class.on]="!reason()" (click)="pick(null)">
+            Everything <span class="n tnum">{{ d.totalNeedingContact }}</span>
+          </button>
+          @for (r of d.reasonCounts; track r.key) {
+            <button
+              type="button"
+              class="chip"
+              [class.on]="reason() === r.key"
+              (click)="pick(r.key)"
+            >
+              {{ label(r.key) }} <span class="n tnum">{{ r.count }}</span>
+            </button>
           }
         </div>
-      } @else {
-        <section class="panel empty">
-          <h3>Nothing needs attention</h3>
-          <p>
-            No teacher is currently quiet, stalled or misconfigured. If that seems
-            wrong, the nightly figures may not have run yet.
-          </p>
-        </section>
       }
 
-      <!-- ── Distributions ─────────────────────────────────────────────── -->
-      <div class="charts">
-        <section class="panel">
-          <div class="panel-head"><h3>How often they work</h3></div>
-          <div class="panel-body">
-            @for (b of cadenceBands(); track b.key) {
-              <div class="bar-row">
-                <app-usage-badge [value]="b.key" axis="cadence" />
-                <div class="bar-track">
-                  <span class="bar-fill" [style.width.%]="pct(b, cadenceBands())"></span>
-                </div>
-                <span class="bar-num tnum">{{ b.count }}</span>
-              </div>
-            }
-          </div>
+      @if (d.items.length === 0) {
+        <section class="panel done">
+          <h3>Nobody needs a call</h3>
+          <p>No teacher is stalled, quiet or misconfigured right now.</p>
         </section>
+      } @else {
+        <ol class="calls panel">
+          @for (c of d.items; track c.teacherId; let i = $index) {
+            <li class="call" [attr.data-severity]="c.severity">
+              <span class="rank tnum">{{ i + 1 }}</span>
 
-        <section class="panel">
-          <div class="panel-head"><h3>Who works the account</h3></div>
-          <div class="panel-body">
-            @for (b of operatorBands(); track b.key) {
-              <div class="bar-row">
-                <app-usage-badge [value]="b.key" axis="operators" />
-                <div class="bar-track">
-                  <span class="bar-fill" [style.width.%]="pct(b, operatorBands())"></span>
+              <div class="body">
+                <div class="line1">
+                  <button type="button" class="name" (click)="open(c.teacherId)">
+                    {{ c.fullName }}
+                  </button>
+                  <span class="reason">{{ c.reasonLabel }}</span>
                 </div>
-                <span class="bar-num tnum">{{ b.count }}</span>
-              </div>
-            }
-          </div>
-        </section>
 
-        <section class="panel">
-          <div class="panel-head">
-            <h3>What they actually use</h3>
-          </div>
-          <div class="panel-body">
-            @for (b of moduleBands(); track b.key) {
-              <div class="bar-row">
-                <app-usage-badge [value]="b.key" axis="module" />
-                <div class="bar-track">
-                  <span class="bar-fill" [style.width.%]="pct(b, moduleBands())"></span>
+                <p class="why">{{ c.why }}</p>
+                <p class="do">{{ c.action }}</p>
+
+                <div class="meta">
+                  @if (c.salesRepName) {
+                    <span>{{ c.salesRepName }}</span>
+                  }
+                  @if (c.noteCount > 0) {
+                    <span class="notes">
+                      {{ c.noteCount }} {{ c.noteCount === 1 ? 'note' : 'notes' }}
+                    </span>
+                  }
+                  @if (c.lastActivityAt) {
+                    <span>active {{ timeAgo(c.lastActivityAt) }}</span>
+                  }
                 </div>
-                <span class="bar-num tnum">{{ b.count }}</span>
               </div>
-            }
-          </div>
-        </section>
-      </div>
-    } @else if (loading()) {
-      <div class="skeleton-line"></div>
-      <div class="skeleton-grid">
-        @for (i of [1, 2, 3, 4, 5, 6]; track i) {
-          <div class="skeleton-card"></div>
+
+              @if (c.phoneNumber) {
+                <a class="call-btn" [href]="'tel:' + c.phoneNumber">{{ c.phoneNumber }}</a>
+              } @else {
+                <span class="no-phone">No phone</span>
+              }
+            </li>
+          }
+        </ol>
+
+        @if (d.totalNeedingContact > d.items.length) {
+          <button type="button" class="btn btn-outline-secondary more" (click)="showMore()">
+            Show more ({{ d.totalNeedingContact - d.items.length }} left)
+          </button>
         }
-      </div>
+      }
+
+      <button type="button" class="numbers-toggle" (click)="toggleNumbers()">
+        {{ showNumbers() ? 'Hide' : 'Show' }} platform numbers
+      </button>
+
+      @if (showNumbers()) {
+        @if (numbers(); as n) {
+          <div class="charts">
+            <section class="panel">
+              <div class="panel-head"><h3>How often they work</h3></div>
+              <div class="panel-body">
+                @for (b of n.cadenceBreakdown; track b.key) {
+                  <div class="bar-row">
+                    <span class="bar-label">{{ band(b.key) }}</span>
+                    <div class="bar-track">
+                      <span class="bar-fill" [style.width.%]="pct(b, n.cadenceBreakdown)"></span>
+                    </div>
+                    <span class="bar-num tnum">{{ b.count }}</span>
+                  </div>
+                }
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head"><h3>What they actually use</h3></div>
+              <div class="panel-body">
+                @for (b of n.moduleAdoption; track b.key) {
+                  <div class="bar-row">
+                    <span class="bar-label">{{ band(b.key) }}</span>
+                    <div class="bar-track">
+                      <span class="bar-fill" [style.width.%]="pct(b, n.moduleAdoption)"></span>
+                    </div>
+                    <span class="bar-num tnum">{{ b.count }}</span>
+                  </div>
+                }
+              </div>
+            </section>
+          </div>
+        }
+      }
+      <!-- Same panel as the teacher list: everything about this teacher opens
+           HERE, so the call list never has to be left to look something up. -->
+      @if (selected(); as id) {
+        <app-teacher-panel [teacherId]="id" (closed)="selected.set(null)" />
+      }
+    } @else if (loading()) {
+      @for (i of [1, 2, 3, 4, 5]; track i) {
+        <div class="skeleton-call"></div>
+      }
     } @else {
-      <!-- The error interceptor has already said what went wrong; this is the
-           way back, so the page is never a blank rectangle. -->
-      <section class="panel empty">
-        <h3>Could not load the figures</h3>
-        <p>Something went wrong fetching them. Try again in a moment.</p>
+      <section class="panel done">
+        <h3>Could not load the list</h3>
+        <p>Something went wrong fetching it.</p>
         <button type="button" class="btn btn-outline-secondary btn-sm" (click)="reload()">
           Try again
         </button>
@@ -201,213 +175,213 @@ import { formatDate, timeAgo } from '../../shared/utils/time-format';
   `,
   styles: [
     `
-      .freshness {
-        font-size: var(--t-sm);
-        color: var(--ink-3);
-        white-space: nowrap;
-      }
-
-      /* ── Headline ──────────────────────────────────────────────────── */
-      .headline {
-        padding: var(--s-5);
-        margin-bottom: var(--s-5);
-      }
-      .headline-main {
-        display: flex;
-        align-items: baseline;
-        flex-wrap: wrap;
-        gap: var(--s-2);
-      }
-      .big {
-        font-size: var(--t-num);
-        font-weight: 650;
-        line-height: 1;
-        letter-spacing: -0.02em;
-      }
-      .of {
-        font-size: var(--t-md);
-        color: var(--ink-3);
-      }
-      .headline-label {
-        font-size: var(--t-md);
+      .context {
+        margin: 0 0 var(--s-4);
         color: var(--ink-2);
-      }
-      .headline-meta {
-        display: flex;
-        align-items: center;
-        gap: var(--s-4);
-        flex-wrap: wrap;
-        margin-top: var(--s-2);
-      }
-      .delta {
-        font-size: var(--t-sm);
-        font-weight: 500;
-      }
-      .delta[data-dir='up'] {
-        color: var(--live);
-      }
-      .delta[data-dir='down'] {
-        color: var(--gone);
-      }
-      .see-grid {
-        font-size: var(--t-sm);
-      }
-
-      .headline-figures {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-        gap: var(--s-4);
-        margin: var(--s-5) 0 0;
-        padding-top: var(--s-4);
-        border-top: 1px solid var(--rule);
-      }
-      .headline-figures div {
-        min-width: 0;
-      }
-      .headline-figures dt {
-        font-size: var(--t-sm);
-        font-weight: 500;
-        color: var(--ink-2);
-      }
-      .headline-figures dd {
-        margin: var(--s-1) 0 0;
-        font-size: var(--t-lg);
-        font-weight: 650;
-        line-height: 1;
-      }
-      .headline-figures p {
-        margin: var(--s-1) 0 0;
-        font-size: var(--t-xs);
-        color: var(--ink-3);
-        line-height: 1.4;
-      }
-
-      /* ── Insight cards ─────────────────────────────────────────────── */
-      .cards {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: var(--s-4);
-        margin-bottom: var(--s-5);
-      }
-      .card {
-        display: flex;
-        flex-direction: column;
-        padding: var(--s-4);
-        /* The severity stripe is the only decoration on the page, and it encodes
-           real information: how soon this list needs working. */
-        border-top: 3px solid var(--rule-strong);
-      }
-      .card[data-severity='attention'] {
-        border-top-color: var(--gone);
-      }
-      .card[data-severity='warning'] {
-        border-top-color: var(--risk);
-      }
-      .card[data-severity='info'] {
-        border-top-color: var(--accent);
-      }
-      .card-head {
-        display: flex;
-        align-items: baseline;
-        justify-content: space-between;
-        gap: var(--s-2);
-      }
-      .card-head h3 {
-        margin: 0;
         font-size: var(--t-base);
-        font-weight: 600;
       }
-      .count {
-        font-size: var(--t-lg);
-        font-weight: 650;
-        line-height: 1;
+      .context strong {
+        font-size: var(--t-md);
       }
-      .card-why {
-        margin: var(--s-2) 0 var(--s-3);
-        font-size: var(--t-xs);
-        color: var(--ink-3);
-        line-height: 1.5;
+      .ctx-link {
+        margin-left: var(--s-3);
+        font-size: var(--t-sm);
       }
 
-      .people {
+      /* ── Reason chips: one row of filters, not nine panels ──────────── */
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--s-2);
+        margin-bottom: var(--s-4);
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--s-2);
+        padding: 0.3rem 0.65rem;
+        border: 1px solid var(--rule-strong);
+        border-radius: 999px;
+        background: var(--surface);
+        color: var(--ink-2);
+        font-size: var(--t-sm);
+        cursor: pointer;
+      }
+      .chip:hover {
+        border-color: var(--ink-4);
+        color: var(--ink);
+      }
+      .chip.on {
+        background: var(--ink);
+        border-color: var(--ink);
+        color: #fff;
+      }
+      .chip .n {
+        font-weight: 600;
+        opacity: 0.75;
+      }
+
+      /* ── The list ──────────────────────────────────────────────────── */
+      .calls {
         list-style: none;
         margin: 0;
         padding: 0;
-        border-top: 1px solid var(--rule);
+        overflow: hidden;
       }
-      .people li {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
+      .call {
+        display: grid;
+        grid-template-columns: 2.25rem 1fr auto;
+        align-items: start;
         gap: var(--s-3);
-        padding: var(--s-2) 0;
+        padding: var(--s-4);
         border-bottom: 1px solid var(--rule);
       }
-      .person {
-        display: flex;
-        flex-direction: column;
-        gap: 1px;
-        min-width: 0;
-        text-decoration: none;
-        color: inherit;
+      .call:last-child {
+        border-bottom: 0;
       }
-      .person:hover .name {
-        color: var(--accent);
+      /* Severity is a thin edge, not a filled card — it ranks the row without
+         turning the page into a traffic light. */
+      .call[data-severity='attention'] {
+        box-shadow: inset 3px 0 0 var(--gone);
+      }
+      .call[data-severity='warning'] {
+        box-shadow: inset 3px 0 0 var(--risk);
+      }
+      .call[data-severity='info'] {
+        box-shadow: inset 3px 0 0 var(--rule-strong);
+      }
+
+      .rank {
+        font-size: var(--t-md);
+        font-weight: 600;
+        color: var(--ink-4);
+        line-height: 1.35;
+      }
+      .body {
+        min-width: 0;
+      }
+      .line1 {
+        display: flex;
+        align-items: baseline;
+        gap: var(--s-2);
+        flex-wrap: wrap;
       }
       .name {
-        font-size: var(--t-sm);
-        font-weight: 500;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        font-size: var(--t-md);
+        font-weight: 600;
+        color: var(--ink);
+        text-decoration: none;
+        border: 0;
+        background: none;
+        padding: 0;
+        font-family: inherit;
+        cursor: pointer;
+      }
+      .name:hover {
+        color: var(--accent);
       }
       .reason {
         font-size: var(--t-xs);
         color: var(--ink-3);
       }
-      /* On a phone this is a rep standing outside a tutoring centre. The number
-         is a tap target, not a label. */
-      .call {
-        font-size: var(--t-xs);
-        font-family: var(--font-mono);
-        color: var(--accent);
-        text-decoration: none;
-        white-space: nowrap;
-      }
-      .see-all {
-        margin-top: var(--s-3);
+      .why {
+        margin: var(--s-1) 0 0;
         font-size: var(--t-sm);
-        align-self: flex-start;
+        color: var(--ink-2);
+        line-height: 1.5;
+      }
+      /* The instruction is the point of the row, so it is the only thing here
+         that carries weight and the accent. */
+      .do {
+        margin: var(--s-1) 0 0;
+        font-size: var(--t-sm);
+        font-weight: 500;
+        color: var(--accent-ink);
+        line-height: 1.5;
+      }
+      .meta {
+        display: flex;
+        gap: var(--s-3);
+        flex-wrap: wrap;
+        margin-top: var(--s-2);
+        font-size: var(--t-xs);
+        color: var(--ink-3);
+      }
+      .notes {
+        color: var(--ink-3);
       }
 
-      .empty {
+      .call-btn {
+        font-family: var(--font-mono);
+        font-size: var(--t-sm);
+        white-space: nowrap;
+        padding: 0.4rem 0.7rem;
+        border: 1px solid var(--rule-strong);
+        border-radius: var(--r-sm);
+        color: var(--accent);
+        text-decoration: none;
+      }
+      .call-btn:hover {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+      }
+      .no-phone {
+        font-size: var(--t-xs);
+        color: var(--ink-4);
+        white-space: nowrap;
+      }
+
+      .more {
+        margin-top: var(--s-4);
+      }
+
+      .done {
         padding: var(--s-6);
         text-align: center;
-        margin-bottom: var(--s-5);
       }
-      .empty h3 {
+      .done h3 {
         margin: 0 0 var(--s-2);
         font-size: var(--t-md);
       }
-      .empty p {
-        margin: 0 auto;
+      .done p {
+        margin: 0 auto var(--s-3);
         max-width: 46ch;
         color: var(--ink-3);
         font-size: var(--t-sm);
       }
 
-      /* ── Distributions ─────────────────────────────────────────────── */
+      /* ── Secondary numbers, deliberately quiet ─────────────────────── */
+      .numbers-toggle {
+        display: block;
+        margin: var(--s-6) 0 var(--s-3);
+        border: 0;
+        background: none;
+        padding: 0;
+        color: var(--ink-3);
+        font-size: var(--t-sm);
+        cursor: pointer;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+      .numbers-toggle:hover {
+        color: var(--ink);
+      }
       .charts {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
         gap: var(--s-4);
+        margin-bottom: var(--s-5);
       }
       .bar-row {
         display: grid;
-        grid-template-columns: 8.5rem 1fr 2.5rem;
+        grid-template-columns: 8rem 1fr 2.5rem;
         align-items: center;
         gap: var(--s-3);
         padding: var(--s-1) 0;
+      }
+      .bar-label {
+        font-size: var(--t-xs);
+        color: var(--ink-2);
       }
       .bar-track {
         height: 6px;
@@ -427,25 +401,13 @@ import { formatDate, timeAgo } from '../../shared/utils/time-format';
         text-align: right;
       }
 
-      /* ── Loading ───────────────────────────────────────────────────── */
-      .skeleton-line,
-      .skeleton-card {
+      .skeleton-call {
+        height: 116px;
+        margin-bottom: 2px;
+        border-radius: var(--r-md);
         background: linear-gradient(90deg, var(--quiet-soft) 25%, #f3f4f7 50%, var(--quiet-soft) 75%);
         background-size: 200% 100%;
         animation: shimmer 1.4s infinite;
-        border-radius: var(--r-md);
-      }
-      .skeleton-line {
-        height: 160px;
-        margin-bottom: var(--s-5);
-      }
-      .skeleton-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: var(--s-4);
-      }
-      .skeleton-card {
-        height: 210px;
       }
       @keyframes shimmer {
         to {
@@ -453,13 +415,21 @@ import { formatDate, timeAgo } from '../../shared/utils/time-format';
         }
       }
 
+      /* Phones: the number drops under the instruction, so the row never
+         squeezes the name and the tap target sits under the thumb. */
       @media (max-width: 575.98px) {
-        .bar-row {
-          grid-template-columns: 7rem 1fr 2rem;
+        .call {
+          grid-template-columns: 1.75rem 1fr;
           gap: var(--s-2);
         }
-        .headline {
-          padding: var(--s-4);
+        .call-btn,
+        .no-phone {
+          grid-column: 2;
+          justify-self: start;
+          margin-top: var(--s-2);
+        }
+        .bar-row {
+          grid-template-columns: 7rem 1fr 2rem;
         }
       }
     `,
@@ -468,65 +438,101 @@ import { formatDate, timeAgo } from '../../shared/utils/time-format';
 export class OverviewComponent implements OnInit {
   private readonly insights = inject(AdminInsightsService);
 
-  protected readonly data = signal<AdminOverview | null>(null);
+  protected readonly data = signal<CallList | null>(null);
+  protected readonly numbers = signal<AdminOverview | null>(null);
   protected readonly loading = signal(true);
+  protected readonly reason = signal<string | null>(null);
+  protected readonly showNumbers = signal(false);
+  /** Which teacher's panel is open over the list. */
+  protected readonly selected = signal<number | null>(null);
 
-  protected readonly formatDate = formatDate;
+  private take = DEFAULT_TAKE;
+
   protected readonly timeAgo = timeAgo;
-
-  // The distribution charts read these rather than the template's `as` alias:
-  // Angular 17.3 does not reliably carry an @else-if alias into every nested
-  // block, and a silently-undefined binding there would render empty charts.
-  protected readonly cadenceBands = computed(() => this.data()?.cadenceBreakdown ?? []);
-  protected readonly operatorBands = computed(() => this.data()?.operatorBreakdown ?? []);
-  protected readonly moduleBands = computed(() => this.data()?.moduleAdoption ?? []);
-  protected readonly generatedAt = computed(() => this.data()?.generatedAt ?? null);
-  protected readonly oldestAt = computed(() => this.data()?.oldestSnapshotAt ?? null);
 
   ngOnInit(): void {
     this.reload();
   }
 
+  protected open(teacherId: number): void {
+    this.selected.set(teacherId);
+  }
+
   protected reload(): void {
     this.loading.set(true);
-    this.insights.getOverview().subscribe({
+    this.insights.getCallList(this.reason(), this.take).subscribe({
       next: (d) => {
         this.data.set(d);
         this.loading.set(false);
       },
-      // The error interceptor already toasts the message; just stop the shimmer
-      // so the page does not pretend to still be loading.
       error: () => this.loading.set(false),
     });
   }
 
-  /** Change in live teachers against the previous 30 days, or null with no baseline. */
-  protected delta(): number | null {
-    const d = this.data();
-    if (!d || d.totals.livePrevious === 0) return null;
-    return d.totals.live - d.totals.livePrevious;
+  /** Filtering resets the page size — a filtered list is a fresh piece of work. */
+  protected pick(key: string | null): void {
+    this.reason.set(key);
+    this.take = DEFAULT_TAKE;
+    this.reload();
   }
 
-  /** Bar width as a share of the largest band, so small bands stay visible. */
+  protected showMore(): void {
+    this.take += 50;
+    this.reload();
+  }
+
+  /** The distributions are only fetched if someone actually asks for them. */
+  protected toggleNumbers(): void {
+    this.showNumbers.update((v) => !v);
+    if (this.showNumbers() && !this.numbers()) {
+      this.insights.getOverview().subscribe((n) => this.numbers.set(n));
+    }
+  }
+
   protected pct(band: BandCount, all: BandCount[]): number {
     const peak = Math.max(...all.map((b) => b.count), 1);
     return band.count === 0 ? 0 : Math.max(3, (band.count / peak) * 100);
   }
 
-  /** Card headings, written for the reader rather than taken from the enum. */
-  protected title(key: string): string {
-    return CARD_TITLES[key] ?? key;
+  /** Chip fallback only — each row carries its own localized label from the API. */
+  protected label(key: string): string {
+    return CHIP_LABELS[key] ?? key;
+  }
+
+  protected band(key: string): string {
+    return BAND_LABELS[key] ?? key;
   }
 }
 
-const CARD_TITLES: Record<string, string> = {
+/** How many calls to show before "show more". A list of 241 is not a day's work. */
+const DEFAULT_TAKE = 25;
+
+const CHIP_LABELS: Record<string, string> = {
+  PaidNotStarted: 'Paid, not started',
+  ExpiringWhileWorking: 'Working, expiring',
+  OwnerStopped: 'Teacher stopped',
   WentQuiet: 'Went quiet',
-  AssistantOnly: 'Teacher has stopped',
+  StudentsStranded: 'Students stranded',
+  SetUpNotRunning: 'Ready, not running',
   NeverStarted: 'Never started',
-  SetUpNotRunning: 'Set up, not running',
-  SingleModule: 'Using one thing only',
-  SessionLessRoster: 'Students with no session',
-  NewlyLive: 'Just got going',
-  ExpiringWhileActive: 'Working, but expiring',
-  NewlySubscribed: 'Just subscribed',
+  OneModuleOnly: 'Using one thing',
+};
+
+const BAND_LABELS: Record<string, string> = {
+  Daily: 'Daily',
+  MostDays: 'Most days',
+  Weekly: 'Weekly',
+  Rarely: 'Rarely',
+  Dormant: 'Went quiet',
+  Never: 'Never started',
+  None: 'Nothing used',
+  Attendance: 'Attendance',
+  Payments: 'Payments',
+  Students: 'Students',
+  Sessions: 'Sessions',
+  Videos: 'Videos',
+  OnlineExams: 'Online exams',
+  ExamsHomework: 'Exams & homework',
+  Messaging: 'Messaging',
+  ParentPortal: 'Parent portal',
 };
