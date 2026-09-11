@@ -643,6 +643,11 @@ export class TeacherPanelComponent {
   constructor() {
     // Re-loads whenever the selected teacher changes, so moving between rows
     // keeps the panel open rather than closing and reopening it.
+    //
+    // allowSignalWrites is REQUIRED: this effect reacts to an input change by
+    // kicking off a fetch and setting loading state, and Angular 17 rejects
+    // signal writes inside an effect by default (NG0600). Without it the effect
+    // throws on its first run and the panel hangs on "Loading" forever.
     effect(() => {
       const id = this.teacherId();
       this.detail.set(null);
@@ -657,7 +662,7 @@ export class TeacherPanelComponent {
         error: () => this.loading.set(false),
       });
       this.insights.getNotes(id).subscribe((n) => this.notes.set(n));
-    });
+    }, { allowSignalWrites: true });
 
     // The page behind must not scroll while the panel is over it.
     effect((onCleanup) => {
