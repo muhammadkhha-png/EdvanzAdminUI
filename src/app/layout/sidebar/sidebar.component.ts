@@ -174,7 +174,7 @@ export class SidebarComponent {
     {
       title: null,
       items: [
-        { label: 'Numbers', icon: '◎', route: '/numbers', roles: ['SuperAdmin'] },
+        { label: 'Console', icon: '◎', route: '/console', roles: ['SuperAdmin'] },
         { label: 'Teachers', icon: '▤', route: '/teachers', roles: ['SuperAdmin'] },
       ],
     },

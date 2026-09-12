@@ -24,9 +24,23 @@ export const APP_ROUTES: Routes = [
         (m) => m.MainLayoutComponent,
       ),
     children: [
-      { path: '', pathMatch: 'full', redirectTo: 'numbers' },
+      { path: '', pathMatch: 'full', redirectTo: 'console' },
       {
-        // THE LANDING PAGE — how the subscribed base is doing.
+        // THE LANDING PAGE. Answers the two questions asked every morning — what
+        // changed since yesterday, and how the business is doing — and every number
+        // on it opens the people inside it.
+        path: 'console',
+        canActivate: [permissionGuard],
+        data: { breadcrumb: 'Console', roles: ['SuperAdmin'] },
+        loadComponent: () =>
+          import('./features/console/dashboard.component').then(
+            (m) => m.ConsoleDashboardComponent,
+          ),
+      },
+      // The old landing page. Its endpoint is still live and the page still works;
+      // it is kept reachable for one release so a bookmark does not 404, and the
+      // sidebar no longer offers it.
+      {
         path: 'numbers',
         canActivate: [permissionGuard],
         data: { breadcrumb: 'Numbers', roles: ['SuperAdmin'] },
@@ -59,7 +73,7 @@ export const APP_ROUTES: Routes = [
       // Activity Monitor — the only screen carrying "Newly subscribed" and the
       // registered date-range — became unreachable dead code.
       { path: 'overview', pathMatch: 'full', redirectTo: 'teachers' },
-      { path: 'dashboard', pathMatch: 'full', redirectTo: 'numbers' },
+      { path: 'dashboard', pathMatch: 'full', redirectTo: 'console' },
       { path: 'usage', pathMatch: 'full', redirectTo: 'teachers' },
       {
         path: 'centers',
