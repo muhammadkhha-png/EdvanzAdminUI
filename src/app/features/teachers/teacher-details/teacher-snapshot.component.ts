@@ -89,10 +89,10 @@ const DAY_NAMES = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
                 @for (c of s.classes; track c.sessionId) {
                   <tr>
                     <th scope="row">{{ c.sessionName }}</th>
-                    <td class="small">{{ c.groupName || '—' }}</td>
-                    <td class="small">{{ dayNames(c.scheduleDays) }}</td>
-                    <td class="small tnum">{{ time(c.startTime) }} · {{ c.durationMinutes }} min</td>
-                    <td class="small">{{ day(c.startDate) }} → {{ day(c.endDate) }}</td>
+                    <td class="txt-s">{{ c.groupName || '—' }}</td>
+                    <td class="txt-s">{{ dayNames(c.scheduleDays) }}</td>
+                    <td class="txt-s tnum">{{ time(c.startTime) }} · {{ c.durationMinutes }} min</td>
+                    <td class="txt-s">{{ day(c.startDate) }} → {{ day(c.endDate) }}</td>
                     <td class="tnum" [attr.data-tone]="c.studentCount === 0 ? 'risk' : ''">
                       {{ c.studentCount }}
                     </td>
@@ -237,7 +237,7 @@ const DAY_NAMES = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
       tbody tr:nth-child(odd) {
         background: var(--surface-2);
       }
-      .small {
+      .txt-s {
         font-size: var(--t-xs);
         color: var(--ink-2);
       }

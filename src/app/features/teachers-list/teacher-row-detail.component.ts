@@ -32,7 +32,7 @@ import { formatDate, timeAgo } from '../../shared/utils/time-format';
     <div class="wrap">
       <!-- ── Facts, then the shape of the last month ────────────────────── -->
       <div class="cols">
-        <section class="col">
+        <section class="pane">
           <h4>Account</h4>
           <dl>
             <div>
@@ -66,7 +66,7 @@ import { formatDate, timeAgo } from '../../shared/utils/time-format';
           </dl>
         </section>
 
-        <section class="col">
+        <section class="pane">
           <h4>Set up</h4>
           <dl>
             <div>
@@ -100,7 +100,7 @@ import { formatDate, timeAgo } from '../../shared/utils/time-format';
           </dl>
         </section>
 
-        <section class="col">
+        <section class="pane">
           <h4>Using it</h4>
           <p class="pair">
             <b class="tnum" [attr.data-tone]="row().activeDays7 === 0 ? 'gone' : 'live'">{{ row().activeDays7 }}</b>

@@ -75,7 +75,7 @@ const PAGE = 25;
                     <span class="bad">Not in a class — sees an empty app</span>
                   }
                 </td>
-                <td class="tnum small">
+                <td class="tnum txt-s">
                   @if (s.studentPhoneNumber) {
                     <a [href]="'tel:' + s.studentPhoneNumber">{{ s.studentPhoneNumber }}</a>
                   }
@@ -93,7 +93,7 @@ const PAGE = 25;
                     <span class="muted">not linked</span>
                   }
                 </td>
-                <td class="small">{{ day(s.createdAt) }}</td>
+                <td class="txt-s">{{ day(s.createdAt) }}</td>
               </tr>
             }
           </tbody>
@@ -208,8 +208,8 @@ export class TeacherRosterComponent {
             @for (a of rows(); track a.studentAccountId) {
               <tr>
                 <th scope="row">{{ a.fullName }}</th>
-                <td class="tnum small">{{ a.userName }}</td>
-                <td class="tnum small">{{ a.accountCode }}</td>
+                <td class="tnum txt-s">{{ a.userName }}</td>
+                <td class="tnum txt-s">{{ a.accountCode }}</td>
                 <td>
                   @if (linkFor(a); as link) {
                     @if (link.studentCode) {
@@ -221,7 +221,7 @@ export class TeacherRosterComponent {
                     <span class="muted">—</span>
                   }
                 </td>
-                <td class="small">{{ a.lastLoginAt ? ago(a.lastLoginAt) : 'never' }}</td>
+                <td class="txt-s">{{ a.lastLoginAt ? ago(a.lastLoginAt) : 'never' }}</td>
                 <td>
                   <button type="button" class="mini" (click)="openReset(a)">Reset</button>
                 </td>
@@ -400,7 +400,7 @@ function SHARED_TAB_STYLES(): string {
     tbody a { color: var(--accent); text-decoration: none; }
     tbody a:hover { text-decoration: underline; }
 
-    .small { font-size: var(--t-xs); color: var(--ink-2); }
+    .txt-s { font-size: var(--t-xs); color: var(--ink-2); }
     .muted { color: var(--ink-3); }
     .ok { color: var(--live); font-weight: 600; }
     .bad { color: var(--gone); font-weight: 600; }

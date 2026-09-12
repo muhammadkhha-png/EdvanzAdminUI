@@ -161,7 +161,7 @@ const PAGE_SIZE = 25;
           <tbody>
             @for (t of rows(); track t.teacherId) {
               <tr
-                class="row"
+                class="trow"
                 [class.on]="openId() === t.teacherId"
                 (click)="toggleRow(t.teacherId)"
                 [attr.aria-expanded]="openId() === t.teacherId"
@@ -206,9 +206,9 @@ const PAGE_SIZE = 25;
 
                 <td class="tnum">{{ t.sessionCount }}</td>
                 <td class="tnum">{{ t.activeAssistantCount }}</td>
-                <td class="tnum small">{{ t.lastLoginAt ? ago(t.lastLoginAt) : 'never' }}</td>
+                <td class="tnum txt-s">{{ t.lastLoginAt ? ago(t.lastLoginAt) : 'never' }}</td>
 
-                <td class="small">
+                <td class="txt-s">
                   <span [attr.data-tone]="t.activeDays30 === 0 ? 'gone' : ''">
                     {{ t.lastActivityAt ? ago(t.lastActivityAt) : 'never' }}
                   </span>
@@ -417,16 +417,16 @@ const PAGE_SIZE = 25;
         padding: var(--s-3);
         vertical-align: top;
       }
-      .row {
+      .trow {
         cursor: pointer;
       }
-      .row:nth-child(4n + 1) {
+      .trow:nth-child(4n + 1) {
         background: var(--surface-2);
       }
-      .row:hover {
+      .trow:hover {
         background: var(--accent-soft);
       }
-      .row.on {
+      .trow.on {
         background: var(--accent-soft);
       }
 
@@ -498,7 +498,7 @@ const PAGE_SIZE = 25;
       [data-tone='gone'] {
         color: var(--gone);
       }
-      .small {
+      .txt-s {
         font-size: var(--t-xs);
         color: var(--ink-2);
       }

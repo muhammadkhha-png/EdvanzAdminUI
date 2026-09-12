@@ -47,8 +47,8 @@ import { timeAgo, formatDateTime } from '../../../shared/utils/time-format';
             @for (a of rows(); track a.id) {
               <tr>
                 <th scope="row">{{ a.fullName }}</th>
-                <td class="small">{{ a.username }}</td>
-                <td class="small tnum">
+                <td class="txt-s">{{ a.username }}</td>
+                <td class="txt-s tnum">
                   @if (a.phoneNumber) {
                     <a [href]="'tel:' + a.phoneNumber">{{ a.phoneNumber }}</a>
                   } @else {
@@ -64,8 +64,8 @@ import { timeAgo, formatDateTime } from '../../../shared/utils/time-format';
                     <span class="bad">deactivated</span>
                   }
                 </td>
-                <td class="small">{{ a.lastLoginAt ? ago(a.lastLoginAt) : 'never' }}</td>
-                <td class="small">{{ a.lastActivityAt ? ago(a.lastActivityAt) : 'never' }}</td>
+                <td class="txt-s">{{ a.lastLoginAt ? ago(a.lastLoginAt) : 'never' }}</td>
+                <td class="txt-s">{{ a.lastActivityAt ? ago(a.lastActivityAt) : 'never' }}</td>
                 <td class="acts">
                   <button type="button" class="mini" (click)="toggleHistory(a.userId)">
                     {{ openHistory() === a.userId ? 'Hide' : 'History' }}
@@ -164,7 +164,7 @@ import { timeAgo, formatDateTime } from '../../../shared/utils/time-format';
         font-weight: 650;
         color: var(--ink);
       }
-      .small {
+      .txt-s {
         font-size: var(--t-xs);
         color: var(--ink-2);
       }

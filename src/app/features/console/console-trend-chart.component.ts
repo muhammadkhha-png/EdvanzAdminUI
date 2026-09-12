@@ -107,7 +107,7 @@ import { ConsoleTrendPoint } from '../../core/services/admin-console.service';
     }
 
     <!-- Identity is never colour alone: the same numbers, as text. -->
-    <details class="table">
+    <details class="numtable">
       <summary>See the numbers as a table</summary>
       <div class="scroller">
         <table>
@@ -225,37 +225,37 @@ import { ConsoleTrendPoint } from '../../core/services/admin-console.service';
         margin-right: 6px;
       }
 
-      .table {
+      .numtable {
         margin-top: var(--s-3);
         font-size: var(--t-sm);
       }
-      .table summary {
+      .numtable summary {
         cursor: pointer;
         color: var(--ink-3);
       }
-      .table summary:hover {
+      .numtable summary:hover {
         color: var(--accent);
       }
-      .table table {
+      .numtable table {
         width: 100%;
         border-collapse: collapse;
         margin-top: var(--s-2);
       }
-      .table th,
-      .table td {
+      .numtable th,
+      .numtable td {
         padding: var(--s-2) var(--s-3);
         text-align: left;
         white-space: nowrap;
       }
-      .table thead th {
+      .numtable thead th {
         font-size: var(--t-xs);
         color: var(--ink-3);
         font-weight: 600;
       }
-      .table tbody tr:nth-child(even) {
+      .numtable tbody tr:nth-child(even) {
         background: var(--surface-2);
       }
-      .table td {
+      .numtable td {
         text-align: right;
       }
     `,

@@ -23,7 +23,7 @@ import { FEATURE_LABELS } from '../../utils/feature-labels';
   imports: [RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="row">
+    <div class="mrow">
       <div class="main">
         <div class="line1">
           <a class="name" [routerLink]="['/teacher', t().teacherId]">{{ t().fullName }}</a>
@@ -71,7 +71,7 @@ import { FEATURE_LABELS } from '../../utils/feature-labels';
         </div>
 
         @if (neverOpened(); as never) {
-          <p class="never">Pays for but has never opened: {{ never }}</p>
+          <p class="never">{{ never }}</p>
         }
 
         @if (t().evidence) {
@@ -130,7 +130,7 @@ import { FEATURE_LABELS } from '../../utils/feature-labels';
         min-width: 0;
       }
 
-      .row {
+      .mrow {
         display: flex;
         align-items: flex-start;
         justify-content: space-between;
@@ -281,7 +281,7 @@ import { FEATURE_LABELS } from '../../utils/feature-labels';
       }
 
       @media (max-width: 720px) {
-        .row {
+        .mrow {
           flex-direction: column;
           gap: var(--s-3);
         }
@@ -340,11 +340,23 @@ export class TeacherMiniRowComponent {
     return at ? timeAgo(at) : 'never';
   });
 
-  /** Named, not counted — "pays for 3 things they never opened" is not a conversation. */
+  /**
+   * Named, not counted — "pays for 3 things they never opened" is not a conversation,
+   * but the three names are.
+   *
+   * Unless it is ALL of them, which is where naming stops helping: ten feature names
+   * is a wall of text that says less than the sentence it replaces, and a teacher who
+   * has opened nothing has one problem rather than ten.
+   */
   protected readonly neverOpened = computed(() => {
-    const list = this.t().featuresNeverUsed ?? [];
+    const t = this.t();
+    const list = t.featuresNeverUsed ?? [];
     if (list.length === 0) return null;
-    return list.map((f) => FEATURE_LABELS[f] ?? f).join(', ');
+
+    if (list.length === t.featuresEntitledCount) {
+      return `Pays for ${list.length} features and has never opened any of them.`;
+    }
+    return `Pays for but has never opened: ${list.map((f) => FEATURE_LABELS[f] ?? f).join(', ')}`;
   });
 
   /**

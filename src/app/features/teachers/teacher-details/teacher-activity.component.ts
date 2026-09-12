@@ -26,7 +26,7 @@ import { formatDate, formatDateTime } from '../../../shared/utils/time-format';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="cols">
-      <section class="col">
+      <section class="pane">
         <h2>What they did</h2>
         <p class="cap">The last 90 days. Days with nothing on them are summarised, not listed.</p>
 
@@ -53,7 +53,7 @@ import { formatDate, formatDateTime } from '../../../shared/utils/time-format';
         }
       </section>
 
-      <section class="col">
+      <section class="pane">
         <h2>Who signed in</h2>
 
         @if (!logins()) {
@@ -116,7 +116,7 @@ import { formatDate, formatDateTime } from '../../../shared/utils/time-format';
         grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
         gap: var(--s-4);
       }
-      .col {
+      .pane {
         padding: var(--s-4);
         background: var(--surface);
         border-radius: var(--r-md);
