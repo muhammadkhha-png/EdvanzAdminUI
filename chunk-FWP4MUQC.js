@@ -1,0 +1,1 @@
+import{b as o}from"./chunk-ZJM3352S.js";import{e as t}from"./chunk-2SEDDY2M.js";import{T as r}from"./chunk-JP6VD6YV.js";var d=i=>{let n=r(o),s=r(t),e=i.data?.roles??[];return e.length===0||e.some(u=>n.hasRole(u))?!0:s.createUrlTree(["/forbidden"])};export{d as a};

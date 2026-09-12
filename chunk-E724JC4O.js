@@ -1,0 +1,1 @@
+var e={Students:"Students",Sessions:"Classes",Attendance:"Attendance",Payments:"Payments",EventPayments:"Event payments",Videos:"Videos",OnlineExams:"Online exams",ExamsHomework:"Exams & homework",Messaging:"Messaging",ParentPortal:"Parent portal"};export{e as a};
