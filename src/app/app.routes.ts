@@ -54,10 +54,13 @@ export const APP_ROUTES: Routes = [
       // Old links and bookmarks land on the list rather than a 404. NOTE: redirectTo
       // cannot carry a query string — Angular treats it as a path segment — so these
       // land on the default view ("to contact") rather than a specific one.
+      // NOTE: nothing may redirect 'activity' here. A redirect declared above the
+      // real ActivityMonitorComponent route below shadowed it completely, and the
+      // Activity Monitor — the only screen carrying "Newly subscribed" and the
+      // registered date-range — became unreachable dead code.
       { path: 'overview', pathMatch: 'full', redirectTo: 'teachers' },
       { path: 'dashboard', pathMatch: 'full', redirectTo: 'numbers' },
       { path: 'usage', pathMatch: 'full', redirectTo: 'teachers' },
-      { path: 'activity', pathMatch: 'full', redirectTo: 'teachers' },
       {
         path: 'centers',
         loadChildren: () =>
@@ -94,6 +97,15 @@ export const APP_ROUTES: Routes = [
           import('./features/activity-monitor/activity-monitor.component').then(
             (m) => m.ActivityMonitorComponent,
           ),
+      },
+      {
+        // The sidebar has linked here since the sales page shipped; the route was
+        // never declared, so every click landed on the 404 page.
+        path: 'sales',
+        canActivate: [permissionGuard],
+        data: { breadcrumb: 'Sales', roles: ['SuperAdmin'] },
+        loadComponent: () =>
+          import('./features/sales/sales.component').then((m) => m.SalesComponent),
       },
       {
         path: 'subscription-requests',

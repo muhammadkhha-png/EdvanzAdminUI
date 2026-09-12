@@ -79,16 +79,24 @@ const PAGE_SIZE = 25;
       }
     </div>
 
-    <!-- ── Filters (hidden while working the call list) ────────────────── -->
-    @if (view() !== 'to-contact') {
-      <div class="filters panel">
-        <input
-          type="search"
-          class="form-control search"
-          placeholder="Search name, code, username or phone"
-          [formControl]="search"
-          aria-label="Search teachers"
-        />
+    <!--
+      ── Filters ───────────────────────────────────────────────────────────
+      SEARCH IS ALWAYS VISIBLE. It used to sit inside the block below, which is
+      hidden on the call list — and the call list is the view this screen opens
+      on, so the default state of the only teacher list had no search box at all.
+      The call-list endpoint takes no search term, so typing one moves the reader
+      to the table that can actually answer them (see the search subscription in
+      ngOnInit).
+    -->
+    <div class="filters panel">
+      <input
+        type="search"
+        class="form-control search"
+        placeholder="Search name, code, username or phone"
+        [formControl]="search"
+        aria-label="Search teachers"
+      />
+      @if (view() !== 'to-contact') {
         <select class="form-select" [formControl]="cadence" aria-label="How often">
           <option value="">Any activity</option>
           <option value="Daily">Daily</option>
@@ -118,8 +126,8 @@ const PAGE_SIZE = 25;
             <option [value]="rep.id">{{ rep.name }}</option>
           }
         </select>
-      </div>
-    }
+      }
+    </div>
 
     <!-- ── The rows ────────────────────────────────────────────────────── -->
     <div class="panel list">
@@ -615,7 +623,17 @@ export class TeachersListComponent implements OnInit {
     for (const control of [this.search, this.cadence, this.operators, this.neverUsed, this.salesRepId]) {
       control.valueChanges
         .pipe(debounceTime(control === this.search ? 350 : 0), distinctUntilChanged())
-        .subscribe(() => this.reload());
+        .subscribe(() => {
+          // The call list is a ranked worklist, not a queryable table — its
+          // endpoint takes no search term. Someone typing a name there is asking
+          // to FIND a teacher, so move them to the view that can answer rather
+          // than leaving them typing into a box that does nothing.
+          if (this.view() === 'to-contact' && this.search.value.trim().length > 0) {
+            this.pickView('all');
+            return;
+          }
+          this.reload();
+        });
     }
   }
 

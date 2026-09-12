@@ -7,5 +7,5 @@
  */
 export const environment = {
   production: false,
-  apiBaseUrl: 'https://app-edvanz-api-prod.azurewebsites.net/api',
+  apiBaseUrl: '/api',
 };
