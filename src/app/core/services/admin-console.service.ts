@@ -327,18 +327,48 @@ export class AdminConsoleService {
     windowDays: number,
     page: number,
     pageSize: number,
+    search: string | null,
   ): Observable<PaginatedResponse<ConsoleSegmentTeacher[]>> {
+    let params = new HttpParams()
+      .set('window', windowDays)
+      .set('page', page)
+      .set('pageSize', pageSize);
+    if (search) params = params.set('search', search);
+
     return this.http
       .get<ApiResult<PaginatedResponse<ConsoleSegmentTeacher[]>>>(
         `${this.base}/insights/segments/${encodeURIComponent(key)}`,
-        {
-          params: new HttpParams()
-            .set('window', windowDays)
-            .set('page', page)
-            .set('pageSize', pageSize),
-        },
+        { params },
       )
       .pipe(map((r) => r.data));
+  }
+
+  /**
+   * The whole segment as a CSV — every row, not the page on screen, with the same
+   * search applied. Returns the blob plus the filename the server chose.
+   */
+  exportSegment(
+    key: string,
+    windowDays: number,
+    search: string | null,
+  ): Observable<{ blob: Blob; filename: string }> {
+    let params = new HttpParams().set('window', windowDays);
+    if (search) params = params.set('search', search);
+
+    return this.http
+      .get(`${this.base}/insights/segments/${encodeURIComponent(key)}/export`, {
+        params,
+        responseType: 'blob',
+        observe: 'response',
+      })
+      .pipe(
+        map((res) => ({
+          blob: res.body as Blob,
+          filename:
+            /filename="?([^"]+)"?/.exec(res.headers.get('content-disposition') ?? '')?.[1] ??
+            'edvanz-list.csv',
+        })),
+      );
   }
 
   /** Renewed vs churned per month, plus the trial-conversion split. */

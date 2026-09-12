@@ -1,15 +1,21 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { ConsoleSegmentTeacher } from '../../../core/services/admin-console.service';
+import { timeAgo } from '../../utils/time-format';
+import { FEATURE_LABELS } from '../../utils/feature-labels';
 
 /**
  * ONE teacher, everywhere: on an expanded card, in a drill-down list, in a search
- * result. Name, code, phone, the two buttons that start a conversation, and the one
- * line saying why this person is in front of you.
+ * result. It exists once because "a call and a WhatsApp button on every teacher,
+ * everywhere" is a promise that decays the moment it is implemented twice.
  *
- * It exists once because "a call and a WhatsApp button on every teacher, everywhere"
- * is a promise that decays the moment it is implemented twice — the second copy gets
- * a slightly different phone format, or loses the WhatsApp button on a screen nobody
- * checked. Every list on this console renders this component.
+ * WHAT IT SHOWS is the point. A name and a phone number is not enough to start a
+ * call with: the first thing anyone asks is what state the account is in. So every
+ * row carries the facts that decide how the conversation goes — what they pay for
+ * and when it ends, how many students they have and how many are actually in a
+ * class, how much of the product they use, when they were last seen, and who sold
+ * them. Everything here is already in the row the list fetched; none of it costs a
+ * second request.
  */
 @Component({
   selector: 'app-teacher-mini-row',
@@ -18,26 +24,79 @@ import { RouterLink } from '@angular/router';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="row">
-      <div class="who">
-        <a class="name" [routerLink]="['/teacher', teacherId()]">{{ fullName() }}</a>
-        <div class="meta">
-          <span class="code tnum">{{ teacherCode() }}</span>
-          @if (phoneNumber()) {
-            <span class="phone tnum">{{ phoneNumber() }}</span>
-          } @else {
-            <span class="no-phone">No phone on file</span>
+      <div class="main">
+        <div class="line1">
+          <a class="name" [routerLink]="['/teacher', t().teacherId]">{{ t().fullName }}</a>
+          <span class="code tnum">{{ t().teacherCode }}</span>
+          @if (t().username) {
+            <span class="user">{{ t().username }}</span>
           }
         </div>
-        @if (evidence()) {
-          <p class="why">{{ evidence() }}</p>
+
+        <!-- Subscription first: it decides whether this is a sales call or a support
+             call, and the day count is rendered rather than the status band because
+             the two use different thresholds. -->
+        <div class="facts">
+          <span class="fact" [attr.data-tone]="subTone()">
+            <b>{{ planLabel() }}</b>
+            <span>{{ subLine() }}</span>
+          </span>
+
+          <span class="fact" [attr.data-tone]="t().studentCount === 0 ? 'gone' : studentTone()">
+            <b class="tnum">{{ t().studentCount }}</b>
+            <span>students{{ t().studentCount ? ', ' + t().studentsAssignedToSession + ' in a class' : '' }}</span>
+          </span>
+
+          <span class="fact">
+            <b class="tnum">{{ t().sessionCount }}</b>
+            <span>classes</span>
+          </span>
+
+          @if (t().activeAssistantCount > 0) {
+            <span class="fact">
+              <b class="tnum">{{ t().activeAssistantCount }}</b>
+              <span>assistant{{ t().activeAssistantCount === 1 ? '' : 's' }}</span>
+            </span>
+          }
+
+          <span class="fact" [attr.data-tone]="activityTone()">
+            <b>{{ lastSeen() }}</b>
+            <span>last active</span>
+          </span>
+
+          <span class="fact" [attr.data-tone]="t().featuresAdoptedCount === 0 ? 'gone' : ''">
+            <b class="tnum">{{ t().featuresAdoptedCount }} of {{ t().featuresEntitledCount }}</b>
+            <span>features used</span>
+          </span>
+        </div>
+
+        @if (neverOpened(); as never) {
+          <p class="never">Pays for but has never opened: {{ never }}</p>
         }
+
+        @if (t().evidence) {
+          <p class="why">{{ t().evidence }}</p>
+        }
+
+        <div class="line3">
+          @if (t().phoneNumber) {
+            <span class="phone tnum">{{ t().phoneNumber }}</span>
+          } @else {
+            <span class="no-phone">No phone number on file — nobody can call this teacher</span>
+          }
+          @if (t().salesRepName) {
+            <span class="rep">Sold by {{ t().salesRepName }}</span>
+          }
+          @if (t().noteCount > 0) {
+            <span class="notes">{{ t().noteCount }} note{{ t().noteCount === 1 ? '' : 's' }}</span>
+          }
+        </div>
       </div>
 
       <div class="acts">
-        @if (phoneNumber(); as phone) {
-          <!-- tel: and wa.me are the two things this console is FOR. They are
-               anchors, not buttons, so a long-press still offers "copy number". -->
-          <a class="act call" [href]="'tel:' + phone" [attr.aria-label]="'Call ' + fullName()">
+        @if (t().phoneNumber; as phone) {
+          <!-- Anchors, not buttons, so a long-press still offers "copy number". -->
+          <a class="act call" [href]="'tel:' + phone" [attr.aria-label]="'Call ' + t().fullName">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path
                 d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.4.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.4 0 .8-.2 1l-2.3 2.2Z"
@@ -50,7 +109,7 @@ import { RouterLink } from '@angular/router';
             [href]="whatsAppLink(phone)"
             target="_blank"
             rel="noopener"
-            [attr.aria-label]="'WhatsApp ' + fullName()"
+            [attr.aria-label]="'WhatsApp ' + t().fullName"
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path
@@ -60,7 +119,7 @@ import { RouterLink } from '@angular/router';
             WhatsApp
           </a>
         }
-        <a class="act open" [routerLink]="['/teacher', teacherId()]">Open</a>
+        <a class="act open" [routerLink]="['/teacher', t().teacherId]">Open</a>
       </div>
     </div>
   `,
@@ -76,17 +135,23 @@ import { RouterLink } from '@angular/router';
         align-items: flex-start;
         justify-content: space-between;
         gap: var(--s-4);
-        padding: var(--s-3) 0;
+        padding: var(--s-4) 0;
       }
 
-      .who {
+      .main {
         min-width: 0;
+        flex: 1;
       }
 
+      .line1 {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: var(--s-2) var(--s-3);
+      }
       .name {
-        display: inline-block;
-        font-size: var(--t-base);
-        font-weight: 600;
+        font-size: var(--t-md);
+        font-weight: 650;
         color: var(--ink);
         text-decoration: none;
       }
@@ -95,27 +160,74 @@ import { RouterLink } from '@angular/router';
         color: var(--accent);
         text-decoration: underline;
       }
-
-      .meta {
-        display: flex;
-        flex-wrap: wrap;
-        gap: var(--s-3);
-        margin-top: 2px;
+      .code,
+      .user {
         font-size: var(--t-xs);
         color: var(--ink-3);
       }
 
-      .no-phone {
+      /* The facts strip. Each is a value with its own word beside it, so nothing has
+         to be decoded — and each can carry a tone when the value is the problem. */
+      .facts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--s-2) var(--s-4);
+        margin-top: var(--s-2);
+      }
+      .fact {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 5px;
+        font-size: var(--t-sm);
+        color: var(--ink-3);
+      }
+      .fact b {
+        font-weight: 650;
+        color: var(--ink-2);
+      }
+      .fact[data-tone='live'] b {
+        color: var(--live);
+      }
+      .fact[data-tone='risk'] b {
         color: var(--risk);
       }
+      .fact[data-tone='gone'] b {
+        color: var(--gone);
+      }
 
-      /* The evidence line is the reason this row is on screen, so it reads as a
-         sentence rather than as metadata. */
+      .never,
       .why {
         margin: var(--s-2) 0 0;
         font-size: var(--t-sm);
+        max-width: 72ch;
+      }
+      .never {
+        color: var(--risk);
+      }
+      .why {
         color: var(--ink-2);
-        max-width: 60ch;
+      }
+
+      .line3 {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--s-2) var(--s-4);
+        margin-top: var(--s-2);
+        font-size: var(--t-sm);
+      }
+      .phone {
+        font-weight: 600;
+        color: var(--ink);
+        letter-spacing: 0.02em;
+      }
+      .no-phone {
+        color: var(--gone);
+        font-weight: 600;
+      }
+      .rep,
+      .notes {
+        color: var(--ink-3);
+        font-size: var(--t-xs);
       }
 
       .acts {
@@ -124,12 +236,10 @@ import { RouterLink } from '@angular/router';
         gap: var(--s-2);
         flex-shrink: 0;
       }
-
       .act {
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        /* 44px min target — this console is used on a phone, one-handed, between calls. */
         min-height: 44px;
         padding: 0 var(--s-3);
         border-radius: var(--r-sm);
@@ -139,13 +249,11 @@ import { RouterLink } from '@angular/router';
         white-space: nowrap;
         transition: background-color 160ms ease, color 160ms ease;
       }
-
       .act svg {
         width: 16px;
         height: 16px;
         fill: currentColor;
       }
-
       .call {
         background: var(--accent-soft);
         color: var(--accent-ink);
@@ -153,7 +261,6 @@ import { RouterLink } from '@angular/router';
       .call:hover {
         background: #dde7ff;
       }
-
       .wa {
         background: var(--live-soft);
         color: var(--live);
@@ -161,7 +268,6 @@ import { RouterLink } from '@angular/router';
       .wa:hover {
         background: #d3ece6;
       }
-
       .open {
         color: var(--ink-3);
       }
@@ -169,18 +275,15 @@ import { RouterLink } from '@angular/router';
         color: var(--ink);
         background: var(--quiet-soft);
       }
-
       .act:focus-visible {
         outline: 2px solid var(--accent);
         outline-offset: 2px;
       }
 
-      /* On a phone the two buttons matter more than the metadata, so the row
-         becomes one column and the actions sit full-width under the name. */
-      @media (max-width: 640px) {
+      @media (max-width: 720px) {
         .row {
           flex-direction: column;
-          gap: var(--s-2);
+          gap: var(--s-3);
         }
         .acts {
           width: 100%;
@@ -195,19 +298,59 @@ import { RouterLink } from '@angular/router';
   ],
 })
 export class TeacherMiniRowComponent {
-  readonly teacherId = input.required<number>();
-  readonly fullName = input.required<string>();
-  readonly teacherCode = input<string>('');
-  readonly phoneNumber = input<string | null>(null);
-  /** Why this teacher is in this particular list. */
-  readonly evidence = input<string | null>(null);
+  /** The whole row. Passing the object rather than eight inputs means a field added
+   *  to the contract shows up here without touching every call site. */
+  readonly t = input.required<ConsoleSegmentTeacher>();
 
-  readonly opened = output<number>();
+  protected readonly planLabel = computed(() => {
+    const p = this.t().planType;
+    if (!p) return 'No subscription';
+    return p === 'ManagerialPlus' ? 'Managerial + Parents' : p;
+  });
+
+  /** The subscription in words, using the DAY COUNT rather than the status band. */
+  protected readonly subLine = computed(() => {
+    const days = this.t().subscriptionEndsInDays;
+    if (days === null) return 'never subscribed';
+    if (days < 0) return `ended ${Math.abs(days)} days ago`;
+    if (days === 0) return 'ends today';
+    return `${days} day${days === 1 ? '' : 's'} left`;
+  });
+
+  protected readonly subTone = computed(() => {
+    const days = this.t().subscriptionEndsInDays;
+    if (days === null || days < 0) return 'gone';
+    return days <= 7 ? 'risk' : 'live';
+  });
+
+  protected readonly studentTone = computed(() => {
+    const t = this.t();
+    if (t.studentCount === 0) return 'gone';
+    return t.studentsAssignedToSession === 0 ? 'risk' : 'live';
+  });
+
+  protected readonly activityTone = computed(() => {
+    const d = this.t().activeDays30;
+    if (d === 0) return 'gone';
+    return d < 4 ? 'risk' : 'live';
+  });
+
+  protected readonly lastSeen = computed(() => {
+    const at = this.t().lastActivityAt;
+    return at ? timeAgo(at) : 'never';
+  });
+
+  /** Named, not counted — "pays for 3 things they never opened" is not a conversation. */
+  protected readonly neverOpened = computed(() => {
+    const list = this.t().featuresNeverUsed ?? [];
+    if (list.length === 0) return null;
+    return list.map((f) => FEATURE_LABELS[f] ?? f).join(', ');
+  });
 
   /**
    * Egyptian numbers are stored as 01xxxxxxxxx; wa.me needs a country code and no
-   * leading zero. A number that already carries 20 (or +20) is passed through rather
-   * than prefixed twice — that produced dead links on the teacher panel.
+   * leading zero. A number that already carries 20 is passed through rather than
+   * prefixed twice — that produced dead links on the old teacher panel.
    */
   protected whatsAppLink(phone: string): string {
     const digits = phone.replace(/\D/g, '');

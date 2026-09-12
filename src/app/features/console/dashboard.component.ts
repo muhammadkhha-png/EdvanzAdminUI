@@ -411,9 +411,31 @@ const SEGMENT_PAGE = 15;
       <div class="panel" [attr.data-tone]="openTone()" role="region" [attr.aria-label]="openTitle()">
         <div class="p-head">
           <h3>{{ openTitle() }}</h3>
-          <button type="button" class="close" (click)="toggle(null)" aria-label="Close this list">
-            Close
-          </button>
+          <div class="p-tools">
+            <!-- Search INSIDE the list. A drill-down runs to hundreds of people and
+                 someone looking for one of them should not page through the rest.
+                 It filters on the server, so it searches the whole list rather than
+                 the fifteen rows that happen to be loaded. -->
+            <input
+              type="search"
+              class="p-search"
+              placeholder="Search this list"
+              [attr.aria-label]="'Search ' + openTitle()"
+              [value]="segmentSearch()"
+              (input)="onSearch($event)"
+            />
+            <button
+              type="button"
+              class="p-export"
+              [disabled]="exporting() || segmentTotal() === 0"
+              (click)="exportSegment()"
+            >
+              {{ exporting() ? 'Preparing…' : 'Export CSV' }}
+            </button>
+            <button type="button" class="close" (click)="toggle(null)" aria-label="Close this list">
+              Close
+            </button>
+          </div>
         </div>
 
         @if (segmentLoading() && segmentRows().length === 0) {
@@ -421,16 +443,16 @@ const SEGMENT_PAGE = 15;
             <div class="sk-row"></div>
           }
         } @else if (segmentRows().length === 0) {
-          <p class="p-empty">Nobody is in this list.</p>
+          <p class="p-empty">
+            @if (segmentSearch()) {
+              Nobody in this list matches "{{ segmentSearch() }}".
+            } @else {
+              Nobody is in this list.
+            }
+          </p>
         } @else {
           @for (t of segmentRows(); track t.teacherId) {
-            <app-teacher-mini-row
-              [teacherId]="t.teacherId"
-              [fullName]="t.fullName"
-              [teacherCode]="t.teacherCode"
-              [phoneNumber]="t.phoneNumber"
-              [evidence]="t.evidence"
-            />
+            <app-teacher-mini-row [t]="t" />
           }
 
           <div class="p-foot">
@@ -754,10 +776,56 @@ const SEGMENT_PAGE = 15;
 
       .p-head {
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
         justify-content: space-between;
         gap: var(--s-3);
         margin-bottom: var(--s-2);
+      }
+      .p-tools {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--s-2);
+      }
+      .p-search {
+        min-height: 40px;
+        min-width: 200px;
+        padding: 0 var(--s-3);
+        border: 1px solid var(--rule-strong);
+        border-radius: var(--r-sm);
+        background: var(--surface);
+        font: inherit;
+        font-size: var(--t-sm);
+        color: var(--ink);
+      }
+      .p-search:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+        border-color: var(--accent);
+      }
+      .p-export {
+        min-height: 40px;
+        padding: 0 var(--s-3);
+        border: 0;
+        border-radius: var(--r-sm);
+        background: var(--accent-soft);
+        font: inherit;
+        font-size: var(--t-sm);
+        font-weight: 600;
+        color: var(--accent-ink);
+        cursor: pointer;
+      }
+      .p-export:hover:not(:disabled) {
+        background: #dde7ff;
+      }
+      .p-export:disabled {
+        opacity: 0.55;
+        cursor: default;
+      }
+      .p-export:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
       }
       .p-head h3 {
         margin: 0;
@@ -940,7 +1008,10 @@ export class ConsoleDashboardComponent {
   protected readonly segmentRows = signal<ConsoleSegmentTeacher[]>([]);
   protected readonly segmentTotal = signal(0);
   protected readonly segmentLoading = signal(false);
+  protected readonly segmentSearch = signal('');
+  protected readonly exporting = signal(false);
   private segmentPage = 1;
+  private searchTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     this.route.queryParamMap.subscribe((params) => {
@@ -1015,6 +1086,9 @@ export class ConsoleDashboardComponent {
     this.segmentRows.set([]);
     this.segmentTotal.set(0);
     this.segmentPage = 1;
+    // A term typed into one list must not silently narrow the next one.
+    this.segmentSearch.set('');
+    if (this.searchTimer) clearTimeout(this.searchTimer);
     if (!key) return;
 
     this.describeOpen(key);
@@ -1027,19 +1101,60 @@ export class ConsoleDashboardComponent {
     this.fetchSegment();
   }
 
+  /**
+   * Debounced so a four-letter name is one request, not four. The term goes to the
+   * SERVER — filtering the fifteen loaded rows client-side would search the page
+   * rather than the list, and quietly answer "no matches" about people who are in it.
+   */
+  protected onSearch(event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+
+    this.searchTimer = setTimeout(() => {
+      if (value.trim() === this.segmentSearch()) return;
+      this.segmentSearch.set(value.trim());
+      this.segmentPage = 1;
+      this.segmentRows.set([]);
+      this.fetchSegment();
+    }, 350);
+  }
+
+  /** The whole list as a CSV, with the search applied — what a rep takes into a morning of calls. */
+  protected exportSegment(): void {
+    const key = this.openKey();
+    if (!key || this.exporting()) return;
+
+    this.exporting.set(true);
+    this.api.exportSegment(key, this.windowDays(), this.segmentSearch() || null).subscribe({
+      next: ({ blob, filename }) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        // Revoking immediately can cancel the download in some browsers; one tick is enough.
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        this.exporting.set(false);
+      },
+      error: () => this.exporting.set(false),
+    });
+  }
+
   private fetchSegment(): void {
     const key = this.openKey();
     if (!key) return;
 
     this.segmentLoading.set(true);
-    this.api.getSegment(key, this.windowDays(), this.segmentPage, SEGMENT_PAGE).subscribe({
+    this.api
+      .getSegment(key, this.windowDays(), this.segmentPage, SEGMENT_PAGE, this.segmentSearch() || null)
+      .subscribe({
       next: (res) => {
         this.segmentRows.update((rows) => [...rows, ...res.data]);
         this.segmentTotal.set(res.totalCount);
         this.segmentLoading.set(false);
       },
-      error: () => this.segmentLoading.set(false),
-    });
+        error: () => this.segmentLoading.set(false),
+      });
   }
 
   /**
