@@ -42,7 +42,7 @@ import { ToastService } from '../../core/services/toast.service';
       <div class="row-head" aria-hidden="true">
         <span>Rep</span>
         <span class="num">Signed</span>
-        <span class="num">Live</span>
+        <span class="num">Using it</span>
         <span class="num">Set up</span>
         <span class="num">Went quiet</span>
         <span class="num">Never started</span>

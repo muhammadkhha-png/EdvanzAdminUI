@@ -1,12 +1,13 @@
 import { Component, inject, output } from '@angular/core';
 import { AuthService } from '../../core/services/auth.service';
 import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcrumb.component';
+import { GlobalSearchComponent } from '../global-search/global-search.component';
 
-/** Top bar: sidebar toggle, breadcrumb, current user, logout. */
+/** Top bar: sidebar toggle, breadcrumb, the one search box, current user, logout. */
 @Component({
   selector: 'app-navbar',
   standalone: true,
-  imports: [BreadcrumbComponent],
+  imports: [BreadcrumbComponent, GlobalSearchComponent],
   template: `
     <header class="navbar-shell">
       <div class="left">
@@ -20,6 +21,11 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
         </button>
         <app-breadcrumb />
       </div>
+
+      <!-- Always on screen. A support call does not arrive scoped to a page, so the
+           way to find a person cannot live on one. -->
+      <app-global-search />
+
       <div class="right">
         <div class="user-block">
           <span class="user-avatar">{{ initials }}</span>
@@ -34,11 +40,13 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
   styles: [
     `
       .navbar-shell {
-        height: 60px;
+        min-height: 60px;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0 1.25rem;
+        gap: 1rem;
+        flex-wrap: wrap;
+        padding: 0.5rem 1.25rem;
         background: #fff;
         border-bottom: 1px solid var(--edvanz-border, #e5e7eb);
       }
@@ -85,6 +93,13 @@ import { BreadcrumbComponent } from '../../shared/components/breadcrumb/breadcru
       }
       @media (max-width: 576px) {
         .user-name {
+          display: none;
+        }
+      }
+      /* On a phone the breadcrumb is the first thing to go — the search box is
+         worth more than knowing which page you are already looking at. */
+      @media (max-width: 720px) {
+        .left app-breadcrumb {
           display: none;
         }
       }

@@ -1,6 +1,7 @@
-import { Component, computed, inject, input, output } from '@angular/core';
+import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
+import { AdminConsoleService, ConsolePending } from '../../core/services/admin-console.service';
 
 interface NavItem {
   label: string;
@@ -8,6 +9,8 @@ interface NavItem {
   route: string;
   /** Roles allowed to see the link. Omitted = visible to any signed-in admin. */
   roles?: string[];
+  /** Which pending count to badge this entry with, if any. */
+  badge?: 'subscriptions' | 'centerSubscriptions' | 'independence';
 }
 
 interface NavGroup {
@@ -63,6 +66,12 @@ interface NavGroup {
             >
               <span class="nav-icon" aria-hidden="true">{{ item.icon }}</span>
               <span class="nav-label">{{ item.label }}</span>
+              @if (badgeFor(item); as count) {
+                <!-- The number is in the accessible name too, not only in a coloured
+                     pill — a queue with three people waiting has to read as three to
+                     a screen reader as well. -->
+                <span class="nav-badge" [attr.aria-label]="count + ' waiting'">{{ count }}</span>
+              }
             </a>
           }
         }
@@ -71,6 +80,19 @@ interface NavGroup {
   `,
   styles: [
     `
+      .nav-badge {
+        margin-left: auto;
+        min-width: 22px;
+        padding: 1px 7px;
+        border-radius: 999px;
+        background: #b45309;
+        color: #fff;
+        font-size: 0.7rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        text-align: center;
+      }
+
       .sidebar {
         width: 244px;
         background: var(--ink);
@@ -161,6 +183,43 @@ interface NavGroup {
   ],
 })
 export class SidebarComponent {
+  private readonly console = inject(AdminConsoleService);
+
+  /**
+   * Approval counts, fetched once when the shell mounts.
+   *
+   * A queue nobody is told about is a queue somebody has to REMEMBER to visit, and a
+   * teacher waiting on an approval has no way to know they are waiting on nothing.
+   * Deliberately not polled: this is a sidebar, not a monitor, and a count that is a
+   * few minutes old still says "go and look".
+   */
+  protected readonly pending = signal<ConsolePending | null>(null);
+
+  constructor() {
+    // SuperAdmin-only endpoint. A non-admin gets a 403 and simply no badges, which is
+    // the same as the links they cannot see anyway.
+    this.console.getPending().subscribe({
+      next: (p) => this.pending.set(p),
+      error: () => this.pending.set(null),
+    });
+  }
+
+  /** The count for one entry, or null when there is nothing waiting — an empty queue
+   *  should show nothing at all rather than a zero, which reads as a number to act on. */
+  protected badgeFor(item: NavItem): number | null {
+    const p = this.pending();
+    if (!p || !item.badge) return null;
+
+    const count =
+      item.badge === 'subscriptions'
+        ? p.subscriptionRequests + p.subscriptionPayments + p.capacityRequests
+        : item.badge === 'centerSubscriptions'
+          ? p.centerSubscriptionRequests
+          : p.teacherIndependenceRequests;
+
+    return count > 0 ? count : null;
+  }
+
   private readonly auth = inject(AuthService);
 
   readonly open = input(false);
@@ -195,18 +254,21 @@ export class SidebarComponent {
           icon: '🧾',
           route: '/subscription-requests',
           roles: ['SuperAdmin'],
+          badge: 'subscriptions',
         },
         {
           label: 'Center subscriptions',
           icon: '📋',
           route: '/center-subscription-requests',
           roles: ['SuperAdmin'],
+          badge: 'centerSubscriptions',
         },
         {
           label: 'Independence',
           icon: '🚪',
           route: '/teacher-independence-requests',
           roles: ['SuperAdmin'],
+          badge: 'independence',
         },
       ],
     },

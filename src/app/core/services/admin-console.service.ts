@@ -371,6 +371,18 @@ export class AdminConsoleService {
       );
   }
 
+  /**
+   * Just the approval counts — what the sidebar badges read on every page.
+   * Its own endpoint rather than a slice of the dashboard: the sidebar is always
+   * mounted, and rebuilding the dashboard to colour a badge would make the cheapest
+   * thing on the console the most expensive thing it does.
+   */
+  getPending(): Observable<ConsolePending> {
+    return this.http
+      .get<ApiResult<ConsolePending>>(`${this.base}/insights/pending`)
+      .pipe(map((r) => r.data));
+  }
+
   /** Renewed vs churned per month, plus the trial-conversion split. */
   getRenewals(months = 6): Observable<ConsoleRenewals> {
     return this.http

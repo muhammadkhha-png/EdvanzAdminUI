@@ -37,16 +37,6 @@ export const APP_ROUTES: Routes = [
             (m) => m.ConsoleDashboardComponent,
           ),
       },
-      // The old landing page. Its endpoint is still live and the page still works;
-      // it is kept reachable for one release so a bookmark does not 404, and the
-      // sidebar no longer offers it.
-      {
-        path: 'numbers',
-        canActivate: [permissionGuard],
-        data: { breadcrumb: 'Numbers', roles: ['SuperAdmin'] },
-        loadComponent: () =>
-          import('./features/numbers/numbers.component').then((m) => m.NumbersComponent),
-      },
       {
         // THE ONE TEACHER LIST. Four screens used to list teachers; this replaced
         // all of them, with views as preset filters over the same rows.
@@ -65,16 +55,19 @@ export const APP_ROUTES: Routes = [
         loadChildren: () =>
           import('./features/teachers/teachers.routes').then((m) => m.TEACHERS_ROUTES),
       },
-      // Old links and bookmarks land on the list rather than a 404. NOTE: redirectTo
-      // cannot carry a query string — Angular treats it as a path segment — so these
-      // land on the default view ("to contact") rather than a specific one.
-      // NOTE: nothing may redirect 'activity' here. A redirect declared above the
-      // real ActivityMonitorComponent route below shadowed it completely, and the
-      // Activity Monitor — the only screen carrying "Newly subscribed" and the
-      // registered date-range — became unreachable dead code.
+      // Bookmarks from the screens this console replaced. They REDIRECT rather than
+      // 404: someone who saved a link a year ago should land where that thing lives
+      // now, not on an error page that makes the app look broken.
+      //
+      // 'numbers' was the old landing page — the Console answers it.
+      // 'activity' was the Activity Monitor — the Teachers table absorbed its
+      // columns (registered range, newly subscribed, last login, team activity),
+      // and per-person sign-in history now lives on the teacher's own page.
+      { path: 'numbers', pathMatch: 'full', redirectTo: 'console' },
       { path: 'overview', pathMatch: 'full', redirectTo: 'teachers' },
       { path: 'dashboard', pathMatch: 'full', redirectTo: 'console' },
       { path: 'usage', pathMatch: 'full', redirectTo: 'teachers' },
+      { path: 'activity', pathMatch: 'full', redirectTo: 'teachers' },
       {
         path: 'centers',
         loadChildren: () =>
@@ -104,17 +97,6 @@ export const APP_ROUTES: Routes = [
           ),
       },
       {
-        path: 'activity',
-        canActivate: [permissionGuard],
-        data: { breadcrumb: 'Activity Monitor', roles: ['SuperAdmin'] },
-        loadComponent: () =>
-          import('./features/activity-monitor/activity-monitor.component').then(
-            (m) => m.ActivityMonitorComponent,
-          ),
-      },
-      {
-        // The sidebar has linked here since the sales page shipped; the route was
-        // never declared, so every click landed on the 404 page.
         path: 'sales',
         canActivate: [permissionGuard],
         data: { breadcrumb: 'Sales', roles: ['SuperAdmin'] },
