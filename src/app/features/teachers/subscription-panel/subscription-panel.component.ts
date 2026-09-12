@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import {
   FormBuilder,
@@ -37,7 +37,7 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog/
 @Component({
   selector: 'app-subscription-panel',
   standalone: true,
-  imports: [ReactiveFormsModule, DatePipe, SubscriptionStatusBadgeComponent],
+  imports: [ReactiveFormsModule, DatePipe, NgTemplateOutlet, SubscriptionStatusBadgeComponent],
   template: `
     @if (subscription(); as sub) {
       <div class="row g-4">
@@ -82,103 +82,10 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog/
         <div class="col-lg-7">
           <div class="actions">
             @if (sub.subscriptionStatus === 'Pending' || sub.subscriptionStatus === 'Cancelled' || sub.subscriptionStatus === 'Expired') {
-              <form [formGroup]="activateForm" (ngSubmit)="activate()" class="action-card">
+              <div class="action-card">
                 <h6>Activate subscription</h6>
-
-                <div class="mb-2">
-                  <label class="form-label d-block mb-1">Subscription type</label>
-                  <div class="btn-group btn-group-sm w-100" role="group">
-                    <input type="radio" class="btn-check" formControlName="planType" value="Full" id="pt-full" />
-                    <label class="btn btn-outline-primary" for="pt-full">Full</label>
-                    <input type="radio" class="btn-check" formControlName="planType" value="ManagerialPlus" id="pt-mgr-plus" />
-                    <label class="btn btn-outline-primary" for="pt-mgr-plus">Managerial + Parents</label>
-                    <input type="radio" class="btn-check" formControlName="planType" value="Managerial" id="pt-mgr" />
-                    <label class="btn btn-outline-primary" for="pt-mgr">Managerial</label>
-                  </div>
-                  <p class="text-muted small mt-1 mb-0">
-                    {{ planHelp(activateForm.controls.planType.value) }}
-                  </p>
-                </div>
-
-                <div class="row g-2">
-                  <div class="col-sm-6">
-                    <label class="form-label">Start date</label>
-                    <input type="date" class="form-control" formControlName="startDate" />
-                  </div>
-                  <div class="col-sm-6">
-                    <label class="form-label">End date</label>
-                    <input type="date" class="form-control" formControlName="endDate" />
-                  </div>
-                </div>
-
-                <!-- THE LIMITS, SET HERE. They and the plan are one decision: an admin
-                     agreeing a subscription is agreeing the numbers it covers, and putting
-                     them on a different screen means activating at the old limit and
-                     correcting it afterwards. The server applies them before it snapshots
-                     the price, so what is typed here is what the plan costs. -->
-                <div class="mt-3">
-                  <label class="form-label d-block mb-1">
-                    {{ activateForm.controls.planType.value === 'Full'
-                        ? 'Limits this subscription covers'
-                        : 'Students this subscription covers' }}
-                  </label>
-
-                  <div class="row g-2">
-                    <div [class]="activateForm.controls.planType.value === 'Full' ? 'col-sm-6' : 'col-12'">
-                      <label class="form-label small mb-1" for="cap-students">Students on the account</label>
-                      <input
-                        id="cap-students"
-                        type="number"
-                        min="1"
-                        class="form-control"
-                        formControlName="studentCapacity"
-                        [attr.placeholder]="currentStudentCapacity()"
-                      />
-                      <p class="text-muted small mb-0">
-                        Now {{ currentStudentCapacity() }}. Leave blank to keep it.
-                      </p>
-                    </div>
-
-                    @if (activateForm.controls.planType.value === 'Full') {
-                      <div class="col-sm-6">
-                        <label class="form-label small mb-1" for="cap-linked">Student app accounts</label>
-                        <input
-                          id="cap-linked"
-                          type="number"
-                          min="1"
-                          class="form-control"
-                          formControlName="linkedStudentCapacity"
-                          [attr.placeholder]="currentLinkedCapacity()"
-                        />
-                        <p class="text-muted small mb-0">
-                          Now {{ currentLinkedCapacity() }}. <strong>The price is based on this.</strong>
-                        </p>
-                      </div>
-                    }
-                  </div>
-
-                  @if (priceLine(); as line) {
-                    <p class="price-line mb-0 mt-2">{{ line }}</p>
-                  }
-                </div>
-
-                @if (activateForm.controls.planType.value !== 'Full') {
-                  <div class="form-check mt-2">
-                    <input class="form-check-input" type="checkbox" formControlName="removeExistingLinks" id="rm-links" />
-                    <label class="form-check-label" for="rm-links">
-                      Also remove students &amp; parents already linked
-                    </label>
-                    <p class="text-muted small mb-0">
-                      Off: existing students/parents are kept (only new links are blocked).
-                      On: their account links are removed now.
-                    </p>
-                  </div>
-                }
-
-                <button type="submit" class="btn btn-success btn-sm mt-2" [disabled]="activateForm.invalid">
-                  Activate {{ planLabel(asPlan(activateForm.controls.planType.value)) }}
-                </button>
-              </form>
+                <ng-container *ngTemplateOutlet="activationForm; context: { $implicit: 'Activate' }" />
+              </div>
             }
 
             @if (sub.subscriptionStatus === 'Active' || sub.subscriptionStatus === 'ExpiringSoon') {
@@ -226,6 +133,81 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog/
                     </button>
                   }
                 </div>
+              </div>
+
+              <!-- THE LIMITS WHILE IT IS RUNNING. The activation form sets these, but a
+                   subscription spends almost all of its life Active, so an admin asked to
+                   raise a teacher's numbers arrives here and used to find nothing. The two
+                   numbers behave differently and the card says so rather than failing at
+                   the server: students-on-the-account only goes up, app accounts go either
+                   way and carry the price. -->
+              <div class="action-card">
+                <h6>Students this subscription covers</h6>
+
+                <div class="cap-grid">
+                  <div>
+                    <label class="form-label small mb-1" for="live-cap-students">
+                      Students on the account
+                    </label>
+                    <div class="input-group input-group-sm">
+                      <input
+                        id="live-cap-students"
+                        type="number"
+                        class="form-control"
+                        [min]="currentStudentCapacity() + 1"
+                        [formControl]="liveStudentCapacity"
+                        [attr.placeholder]="currentStudentCapacity()"
+                      />
+                      <button
+                        type="button"
+                        class="btn btn-outline-primary"
+                        [disabled]="savingStudents() || !canRaiseStudents()"
+                        (click)="raiseStudentCapacity()"
+                      >
+                        {{ savingStudents() ? 'Saving…' : 'Set' }}
+                      </button>
+                    </div>
+                    <p class="text-muted small mb-0 mt-1">
+                      Now {{ currentStudentCapacity() }}. This one only goes up — type a
+                      higher number. Not what the subscription is priced on.
+                    </p>
+                  </div>
+
+                  @if (!isRestricted(sub)) {
+                    <div>
+                      <label class="form-label small mb-1" for="live-cap-linked">
+                        Student app accounts
+                      </label>
+                      <div class="input-group input-group-sm">
+                        <input
+                          id="live-cap-linked"
+                          type="number"
+                          min="0"
+                          class="form-control"
+                          [formControl]="liveLinkedCapacity"
+                          [attr.placeholder]="currentLinkedCapacity()"
+                        />
+                        <button
+                          type="button"
+                          class="btn btn-outline-primary"
+                          [disabled]="savingLinked() || !canSetLinked()"
+                          (click)="setLinkedCapacity()"
+                        >
+                          {{ savingLinked() ? 'Saving…' : 'Set' }}
+                        </button>
+                      </div>
+                      <p class="text-muted small mb-0 mt-1">
+                        Now {{ currentLinkedCapacity() }}. Up or down.
+                        <strong>The price is based on this</strong>, from the next renewal.
+                        Lowering it never signs anyone out — it only blocks new links.
+                      </p>
+                    </div>
+                  }
+                </div>
+
+                @if (livePriceLine(sub); as line) {
+                  <p class="price-line mb-0 mt-2">{{ line }}</p>
+                }
               </div>
 
               <form [formGroup]="extendForm" (ngSubmit)="extend()" class="action-card">
@@ -288,48 +270,116 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog/
       This teacher has no subscription record. Create the first one below
       (manual activation — SuperAdminOverride, no payment).
     </p>
-    <form [formGroup]="activateForm" (ngSubmit)="activate()">
-      <div class="mb-2">
-        <label class="form-label d-block mb-1">Subscription type</label>
-        <div class="btn-group btn-group-sm w-100" role="group">
-          <input type="radio" class="btn-check" formControlName="planType" value="Full" id="pt-full-empty" />
-          <label class="btn btn-outline-primary" for="pt-full-empty">Full</label>
-          <input type="radio" class="btn-check" formControlName="planType" value="ManagerialPlus" id="pt-mgr-plus-empty" />
-          <label class="btn btn-outline-primary" for="pt-mgr-plus-empty">Managerial + Parents</label>
-          <input type="radio" class="btn-check" formControlName="planType" value="Managerial" id="pt-mgr-empty" />
-          <label class="btn btn-outline-primary" for="pt-mgr-empty">Managerial</label>
-        </div>
-        <p class="text-muted small mt-1 mb-0">
-          {{ planHelp(activateForm.controls.planType.value) }}
-        </p>
-      </div>
-      <div class="row g-2">
-        <div class="col-sm-6">
-          <label class="form-label">Start date</label>
-          <input type="date" class="form-control" formControlName="startDate" />
-        </div>
-        <div class="col-sm-6">
-          <label class="form-label">End date</label>
-          <input type="date" class="form-control" formControlName="endDate" />
-        </div>
-      </div>
-      @if (activateForm.controls.planType.value !== 'Full') {
-        <div class="form-check mt-2">
-          <input class="form-check-input" type="checkbox" formControlName="removeExistingLinks" id="rm-links-empty" />
-          <label class="form-check-label" for="rm-links-empty">
-            Also remove students &amp; parents already linked
-          </label>
-        </div>
-      }
-      <p class="text-muted small mt-2 mb-2">
-        Leave both dates empty to start today for 30 days.
-      </p>
-      <button type="submit" class="btn btn-success btn-sm" [disabled]="activateForm.invalid">
-        Create {{ planLabel(asPlan(activateForm.controls.planType.value)) }} subscription
-      </button>
-    </form>
+    <ng-container *ngTemplateOutlet="activationForm; context: { $implicit: 'Create' }" />
   </div>
 }
+
+<!-- THE ONE ACTIVATION FORM. It is reached from two places — a teacher whose
+     subscription lapsed, and a teacher who has never had one — and it used to exist
+     as two copies of the same markup. They drifted the moment one was edited: the
+     student limits were added to the lapsed copy only, so setting up a brand new
+     teacher (the case that needs them most) silently offered no limits at all. One
+     definition, two call sites; the word on the button is the only difference. -->
+<ng-template #activationForm let-verb>
+  <form [formGroup]="activateForm" (ngSubmit)="activate()">
+    <div class="mb-2">
+      <label class="form-label d-block mb-1">Subscription type</label>
+      <div class="btn-group btn-group-sm w-100" role="group">
+        <input type="radio" class="btn-check" formControlName="planType" value="Full" id="pt-full" />
+        <label class="btn btn-outline-primary" for="pt-full">Full</label>
+        <input type="radio" class="btn-check" formControlName="planType" value="ManagerialPlus" id="pt-mgr-plus" />
+        <label class="btn btn-outline-primary" for="pt-mgr-plus">Managerial + Parents</label>
+        <input type="radio" class="btn-check" formControlName="planType" value="Managerial" id="pt-mgr" />
+        <label class="btn btn-outline-primary" for="pt-mgr">Managerial</label>
+      </div>
+      <p class="text-muted small mt-1 mb-0">
+        {{ planHelp(activateForm.controls.planType.value) }}
+      </p>
+    </div>
+
+    <div class="row g-2">
+      <div class="col-sm-6">
+        <label class="form-label" for="act-start">Start date</label>
+        <input id="act-start" type="date" class="form-control" formControlName="startDate" />
+      </div>
+      <div class="col-sm-6">
+        <label class="form-label" for="act-end">End date</label>
+        <input id="act-end" type="date" class="form-control" formControlName="endDate" />
+      </div>
+    </div>
+    <p class="text-muted small mt-1 mb-0">
+      Leave both dates empty to start today for 30 days.
+    </p>
+
+    <!-- THE LIMITS, SET HERE. They and the plan are one decision: an admin agreeing a
+         subscription is agreeing the numbers it covers, and putting them on a different
+         screen means activating at the old limit and correcting it afterwards. The
+         server applies them before it snapshots the price, so what is typed here is
+         what the plan costs. -->
+    <div class="mt-3">
+      <label class="form-label d-block mb-1">
+        {{ activateForm.controls.planType.value === 'Full'
+            ? 'Limits this subscription covers'
+            : 'Students this subscription covers' }}
+      </label>
+
+      <div class="row g-2">
+        <div [class]="activateForm.controls.planType.value === 'Full' ? 'col-sm-6' : 'col-12'">
+          <label class="form-label small mb-1" for="cap-students">Students on the account</label>
+          <input
+            id="cap-students"
+            type="number"
+            min="1"
+            class="form-control"
+            formControlName="studentCapacity"
+            [attr.placeholder]="currentStudentCapacity()"
+          />
+          <p class="text-muted small mb-0">
+            Now {{ currentStudentCapacity() }}. Leave blank to keep it.
+          </p>
+        </div>
+
+        @if (activateForm.controls.planType.value === 'Full') {
+          <div class="col-sm-6">
+            <label class="form-label small mb-1" for="cap-linked">Student app accounts</label>
+            <input
+              id="cap-linked"
+              type="number"
+              min="1"
+              class="form-control"
+              formControlName="linkedStudentCapacity"
+              [attr.placeholder]="currentLinkedCapacity()"
+            />
+            <p class="text-muted small mb-0">
+              Now {{ currentLinkedCapacity() }}. <strong>The price is based on this.</strong>
+            </p>
+          </div>
+        }
+      </div>
+
+      @if (priceLine(); as line) {
+        <p class="price-line mb-0 mt-2">{{ line }}</p>
+      }
+    </div>
+
+    @if (activateForm.controls.planType.value !== 'Full') {
+      <div class="form-check mt-2">
+        <input class="form-check-input" type="checkbox" formControlName="removeExistingLinks" id="rm-links" />
+        <label class="form-check-label" for="rm-links">
+          Also remove students &amp; parents already linked
+        </label>
+        <p class="text-muted small mb-0">
+          Off: existing students/parents are kept (only new links are blocked).
+          On: their account links are removed now.
+        </p>
+      </div>
+    }
+
+    <button type="submit" class="btn btn-success btn-sm mt-2" [disabled]="activateForm.invalid">
+      {{ verb }} {{ planLabel(asPlan(activateForm.controls.planType.value)) }} subscription
+    </button>
+  </form>
+</ng-template>
   `,
   styles: [
     `
@@ -401,6 +451,24 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog/
       .action-card h6 {
         margin-bottom: 0.75rem;
       }
+      /* The money the numbers above add up to. Quiet, but never grey-on-grey —
+         it is the consequence of the decision being made, not a footnote. */
+      .price-line {
+        padding: 0.45rem 0.7rem;
+        border-radius: 8px;
+        background: #eef2ff;
+        color: #3730a3;
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
+      /* Two limits side by side on a wide panel, stacked when the column narrows —
+         they are read together, and the priced one must never scroll out of sight
+         of the one it is not. */
+      .cap-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 1rem;
+      }
     `,
   ],
 })
@@ -450,6 +518,16 @@ export class SubscriptionPanelComponent implements OnInit {
   protected readonly endDateForm = this.fb.nonNullable.group({
     endDate: ['', Validators.required],
   });
+
+  // ── The two limits, editable while the subscription is running ────────────────
+  // Separate controls from the activation form's: those mean "apply this when the
+  // period starts", these mean "change it now, on a period already running". Blank
+  // means "leave it alone" in both, which is why neither is seeded with the current
+  // number — a pre-filled box invites a Set that changes nothing.
+  protected readonly liveStudentCapacity = this.fb.nonNullable.control('');
+  protected readonly liveLinkedCapacity = this.fb.nonNullable.control('');
+  protected readonly savingStudents = signal(false);
+  protected readonly savingLinked = signal(false);
 
   ngOnInit(): void {
     this.teacherId = +(this.route.parent!.snapshot.paramMap.get('id') ?? '0');
@@ -687,6 +765,103 @@ export class SubscriptionPanelComponent implements OnInit {
 
   private egp(amount: number): string {
     return `${Math.round(amount).toLocaleString('en-GB')} EGP`;
+  }
+
+  // ── Changing the limits on a subscription that is already running ─────────────
+
+  /**
+   * The Set button is dead until the number would actually change something, and
+   * the hint under the box says why. The server rejects an equal-or-lower value on
+   * this endpoint by design (raising capacity is a billing event with an audit row
+   * and a notification; lowering it is not a thing an admin does by typing), so
+   * refusing it here means the admin reads the rule instead of a 400.
+   */
+  protected canRaiseStudents(): boolean {
+    const n = this.asLimit(this.liveStudentCapacity.value);
+    return n !== null && n > this.currentStudentCapacity();
+  }
+
+  /** Up or down, but not to the number it already is. */
+  protected canSetLinked(): boolean {
+    const raw = (this.liveLinkedCapacity.value ?? '').trim();
+    if (!raw) return false;
+    const n = Number(raw);
+    return Number.isFinite(n) && n >= 0 && Math.floor(n) !== this.currentLinkedCapacity();
+  }
+
+  protected raiseStudentCapacity(): void {
+    const n = this.asLimit(this.liveStudentCapacity.value);
+    if (n === null || !this.canRaiseStudents() || this.savingStudents()) return;
+
+    this.savingStudents.set(true);
+    this.teachers.adjustTeacherCapacity(this.teacherId, { newCapacity: n }).subscribe({
+      next: () => {
+        this.savingStudents.set(false);
+        this.liveStudentCapacity.setValue('');
+        // The echoed row is a capacity-request audit record, not the teacher — re-read
+        // the profile so every "Now N" on the screen comes from one source.
+        this.refreshProfile();
+        this.toast.success(`Students on the account raised to ${n}.`);
+      },
+      error: () => this.savingStudents.set(false),
+    });
+  }
+
+  protected setLinkedCapacity(): void {
+    const raw = (this.liveLinkedCapacity.value ?? '').trim();
+    const n = Math.floor(Number(raw));
+    if (!this.canSetLinked() || this.savingLinked()) return;
+
+    this.savingLinked.set(true);
+    this.subscriptionService
+      .setLinkedStudentCapacity(this.teacherId, { newCapacity: n })
+      .subscribe({
+        next: () => {
+          this.savingLinked.set(false);
+          this.liveLinkedCapacity.setValue('');
+          this.refreshProfile();
+          this.toast.success(
+            `Student app accounts set to ${n}. The next renewal is priced on it.`,
+          );
+        },
+        error: () => this.savingLinked.set(false),
+      });
+  }
+
+  /**
+   * What this teacher's plan costs a month at the limits they are on RIGHT NOW,
+   * moved to what is typed in the boxes. Distinct from priceLine(), which prices the
+   * activation form; this one follows the live plan rather than a radio button.
+   */
+  protected livePriceLine(sub: TeacherSubscriptionDto): string | null {
+    const rates = this.pricing();
+    if (!rates) return null;
+
+    if (sub.planType === 'Managerial') {
+      return `Managerial is a flat ${this.egp(rates.managerialMonthlyPriceEGP)} a month, whatever the student limit.`;
+    }
+    if (sub.planType === 'ManagerialPlus') {
+      return `Managerial + Parents is a flat ${this.egp(rates.managerialPlusMonthlyPriceEGP)} a month, whatever the student limit.`;
+    }
+
+    const typed = (this.liveLinkedCapacity.value ?? '').trim();
+    const seats =
+      typed && Number.isFinite(Number(typed))
+        ? Math.floor(Number(typed))
+        : this.currentLinkedCapacity();
+    if (!seats || !rates.pricePerStudentEGP) return null;
+
+    const total = this.egp(seats * rates.pricePerStudentEGP);
+    return typed && Math.floor(Number(typed)) !== this.currentLinkedCapacity()
+      ? `${seats} app accounts × ${this.egp(rates.pricePerStudentEGP)} = ${total} a month once set.`
+      : `${seats} app accounts × ${this.egp(rates.pricePerStudentEGP)} = ${total} a month.`;
+  }
+
+  private refreshProfile(): void {
+    this.teachers.getTeacherById(this.teacherId).subscribe({
+      next: (p) => this.profile.set(p),
+      error: () => {},
+    });
   }
 
   private load(): void {
