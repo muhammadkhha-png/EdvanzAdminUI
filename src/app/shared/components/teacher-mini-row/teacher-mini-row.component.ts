@@ -70,6 +70,9 @@ import { FEATURE_LABELS } from '../../utils/feature-labels';
           </span>
         </div>
 
+        @if (usingNow(); as using) {
+          <p class="using">Uses: {{ using }}</p>
+        }
         @if (neverOpened(); as never) {
           <p class="never">{{ never }}</p>
         }
@@ -195,11 +198,15 @@ import { FEATURE_LABELS } from '../../utils/feature-labels';
         color: var(--gone);
       }
 
+      .using,
       .never,
       .why {
         margin: var(--s-2) 0 0;
         font-size: var(--t-sm);
         max-width: 72ch;
+      }
+      .using {
+        color: var(--live);
       }
       .never {
         color: var(--risk);
@@ -338,6 +345,17 @@ export class TeacherMiniRowComponent {
   protected readonly lastSeen = computed(() => {
     const at = this.t().lastActivityAt;
     return at ? timeAgo(at) : 'never';
+  });
+
+  /**
+   * WHICH modules they actually use, named. "4 of 10" tells you how many and not which,
+   * and which is the half that decides what the call is about — a teacher running
+   * attendance and payments is a different conversation from one posting videos.
+   */
+  protected readonly usingNow = computed(() => {
+    const list = this.t().modules ?? [];
+    if (list.length === 0) return null;
+    return list.map((m) => FEATURE_LABELS[m] ?? m).join(', ');
   });
 
   /**

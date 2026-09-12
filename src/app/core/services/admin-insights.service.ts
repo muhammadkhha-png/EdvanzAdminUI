@@ -150,11 +150,29 @@ export interface TeacherOperator {
 }
 
 /** Everything the Teacher 360 usage tab draws. */
+/** One module, and the evidence for whether this teacher actually uses it. */
+export interface TeacherModuleUsage {
+  module: string;
+  /** Do they pay for it? A module they do not have is not a gap. */
+  hasIt: boolean;
+  /** Last day anything was written in it. Null = never, ever. */
+  lastUsedOn: string | null;
+  writes30: number;
+  writesAllTime: number;
+  /** On how many separate days — one busy afternoon and a daily habit can share a
+   *  write count but never share this. */
+  daysUsedAllTime: number;
+  /** Live | Lapsed | NeverOpened | NotOnTheirPlan — decided on the server. */
+  state: 'Live' | 'Lapsed' | 'NeverOpened' | 'NotOnTheirPlan';
+}
+
 export interface TeacherUsageDetail {
   summary: TeacherUsage;
   dailySeries: UsageDayPoint[];
   moduleBreakdown30: BandCount[];
   operators: TeacherOperator[];
+  /** EVERY module, one row each, worst-first. */
+  moduleUsage: TeacherModuleUsage[];
 }
 
 /** One bar/slice: a band or module name and how many teachers fall in it. */

@@ -56,6 +56,14 @@ export interface AdminActivateRequest {
   teacherId: number;
   startDate?: string | null;
   endDate?: string | null;
+  /** Students allowed on the account. Omitted leaves the current limit alone. */
+  studentCapacity?: number | null;
+  /**
+   * Student app accounts allowed. Omitted leaves the current limit alone.
+   * THE FULL PLAN IS PRICED ON THIS, and the server applies it before it snapshots
+   * the amount — so sending it here prices the plan the admin just agreed.
+   */
+  linkedStudentCapacity?: number | null;
 }
 
 /**
@@ -72,6 +80,12 @@ export interface AdminActivateManagerialRequest {
   startDate?: string | null;
   endDate?: string | null;
   removeExistingLinks: boolean;
+  /**
+   * Students allowed on the account. Omitted leaves the current limit alone.
+   * One number only — neither managerial plan permits student app accounts, so there
+   * is no second limit to set and both are priced flat regardless of it.
+   */
+  studentCapacity?: number | null;
 }
 
 /** POST /api/admin/subscriptions/extend */
@@ -162,4 +176,12 @@ export interface AdminPendingQueueItem {
 }
 export interface CancelSubscriptionRequest {
   teacherId: number;
+}
+
+/** GET /api/admin/subscriptions/pricing — the three rates a plan can be priced from. */
+export interface AdminSubscriptionPricing {
+  pricePerStudentEGP: number;
+  managerialMonthlyPriceEGP: number;
+  managerialPlusMonthlyPriceEGP: number;
+  updatedAt?: string | null;
 }

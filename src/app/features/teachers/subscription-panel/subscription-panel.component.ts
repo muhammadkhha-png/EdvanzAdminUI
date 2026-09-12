@@ -14,6 +14,9 @@ import {
 import { TeacherSubscriptionDto } from '../../../core/models/teacher.model';
 import { SubscriptionService } from '../../../core/services/subscription.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { TeacherService } from '../../../core/services/teacher.service';
+import { TeacherProfile } from '../../../core/models/teacher.model';
+import { AdminSubscriptionPricing } from '../../../core/models/subscription.model';
 import { SubscriptionStatusBadgeComponent } from './subscription-status-badge.component';
 import { ConfirmDialogService } from '../../../shared/components/confirm-dialog/confirm-dialog.service';
 
@@ -106,6 +109,57 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog/
                     <label class="form-label">End date</label>
                     <input type="date" class="form-control" formControlName="endDate" />
                   </div>
+                </div>
+
+                <!-- THE LIMITS, SET HERE. They and the plan are one decision: an admin
+                     agreeing a subscription is agreeing the numbers it covers, and putting
+                     them on a different screen means activating at the old limit and
+                     correcting it afterwards. The server applies them before it snapshots
+                     the price, so what is typed here is what the plan costs. -->
+                <div class="mt-3">
+                  <label class="form-label d-block mb-1">
+                    {{ activateForm.controls.planType.value === 'Full'
+                        ? 'Limits this subscription covers'
+                        : 'Students this subscription covers' }}
+                  </label>
+
+                  <div class="row g-2">
+                    <div [class]="activateForm.controls.planType.value === 'Full' ? 'col-sm-6' : 'col-12'">
+                      <label class="form-label small mb-1" for="cap-students">Students on the account</label>
+                      <input
+                        id="cap-students"
+                        type="number"
+                        min="1"
+                        class="form-control"
+                        formControlName="studentCapacity"
+                        [attr.placeholder]="currentStudentCapacity()"
+                      />
+                      <p class="text-muted small mb-0">
+                        Now {{ currentStudentCapacity() }}. Leave blank to keep it.
+                      </p>
+                    </div>
+
+                    @if (activateForm.controls.planType.value === 'Full') {
+                      <div class="col-sm-6">
+                        <label class="form-label small mb-1" for="cap-linked">Student app accounts</label>
+                        <input
+                          id="cap-linked"
+                          type="number"
+                          min="1"
+                          class="form-control"
+                          formControlName="linkedStudentCapacity"
+                          [attr.placeholder]="currentLinkedCapacity()"
+                        />
+                        <p class="text-muted small mb-0">
+                          Now {{ currentLinkedCapacity() }}. <strong>The price is based on this.</strong>
+                        </p>
+                      </div>
+                    }
+                  </div>
+
+                  @if (priceLine(); as line) {
+                    <p class="price-line mb-0 mt-2">{{ line }}</p>
+                  }
                 </div>
 
                 @if (activateForm.controls.planType.value !== 'Full') {
@@ -356,6 +410,7 @@ export class SubscriptionPanelComponent implements OnInit {
   private readonly subscriptionService = inject(SubscriptionService);
   private readonly toast = inject(ToastService);
   private readonly confirm = inject(ConfirmDialogService);
+  private readonly teachers = inject(TeacherService);
 
   private teacherId!: number;
   private subscriptionId: number | null = null;
@@ -371,10 +426,20 @@ export class SubscriptionPanelComponent implements OnInit {
    */
   protected readonly loadState = signal<'loading' | 'loaded' | 'failed'>('loading');
 
+  /** The teacher's CURRENT limits, so each box can say what it is replacing. */
+  protected readonly profile = signal<TeacherProfile | null>(null);
+  /** The rates, so the form can price the numbers being typed into it. */
+  protected readonly pricing = signal<AdminSubscriptionPricing | null>(null);
+
   protected readonly activateForm = this.fb.nonNullable.group({
     planType: ['Full'],
     startDate: [''],
     endDate: [''],
+    // Blank means "leave the limit alone" — a number box that defaults to 0 would
+    // quietly cap a teacher at nothing the first time someone activated without
+    // thinking about it.
+    studentCapacity: [''],
+    linkedStudentCapacity: [''],
     removeExistingLinks: [false],
   });
   /** Standalone toggle for the "switch an active subscription to Managerial" card. */
@@ -417,15 +482,25 @@ export class SubscriptionPanelComponent implements OnInit {
   }
 
   protected activate(): void {
-    const { startDate, endDate, planType, removeExistingLinks } =
+    const { startDate, endDate, planType, removeExistingLinks, studentCapacity, linkedStudentCapacity } =
       this.activateForm.getRawValue();
     const start = startDate ? this.toUtc(startDate) : null;
     const end = endDate ? this.toUtc(endDate) : null;
     const plan = this.asPlan(planType);
 
+    // Blank stays blank: null tells the server to leave the limit exactly as it is.
+    const students = this.asLimit(studentCapacity);
+    const linked = this.asLimit(linkedStudentCapacity);
+
     if (plan === 'Full') {
       this.subscriptionService
-        .activate({ teacherId: this.teacherId, startDate: start, endDate: end })
+        .activate({
+          teacherId: this.teacherId,
+          startDate: start,
+          endDate: end,
+          studentCapacity: students,
+          linkedStudentCapacity: linked,
+        })
         .subscribe((sub) => this.applyResult(sub, 'Subscription activated.'));
       return;
     }
@@ -435,6 +510,8 @@ export class SubscriptionPanelComponent implements OnInit {
       startDate: start,
       endDate: end,
       removeExistingLinks,
+      // One number: a managerial plan has no app accounts to limit.
+      studentCapacity: students,
     };
     (plan === 'ManagerialPlus'
       ? this.subscriptionService.activateManagerialPlus(request)
@@ -563,6 +640,55 @@ export class SubscriptionPanelComponent implements OnInit {
     this.toast.success(message);
   }
 
+  /** Blank means "leave this limit alone" — never 0, which would cap a teacher at nothing. */
+  private asLimit(value: string): number | null {
+    const trimmed = (value ?? '').trim();
+    if (!trimmed) return null;
+    const n = Number(trimmed);
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+  }
+
+  protected currentStudentCapacity(): number {
+    return this.profile()?.studentCapacity ?? 0;
+  }
+
+  protected currentLinkedCapacity(): number {
+    return this.profile()?.linkedStudentCapacity ?? 0;
+  }
+
+  /**
+   * What the plan will cost with the numbers currently in the boxes.
+   *
+   * Shown because the admin is typing the number the Full price is computed FROM, and
+   * a limit with no price beside it is a decision made blind. The managerial plans are
+   * flat, so their line says so rather than reacting to a box that does not affect them.
+   */
+  protected priceLine(): string | null {
+    const rates = this.pricing();
+    if (!rates) return null;
+
+    const plan = this.activateForm.controls.planType.value;
+    if (plan === 'Managerial') {
+      return `Managerial is a flat ${this.egp(rates.managerialMonthlyPriceEGP)} a month, whatever the student limit.`;
+    }
+    if (plan === 'ManagerialPlus') {
+      return `Managerial + Parents is a flat ${this.egp(rates.managerialPlusMonthlyPriceEGP)} a month, whatever the student limit.`;
+    }
+
+    const seats =
+      this.asLimit(this.activateForm.controls.linkedStudentCapacity.value) ??
+      this.currentLinkedCapacity();
+    if (!seats || !rates.pricePerStudentEGP) return null;
+
+    return `${seats} app accounts × ${this.egp(rates.pricePerStudentEGP)} = ${this.egp(
+      seats * rates.pricePerStudentEGP,
+    )} a month.`;
+  }
+
+  private egp(amount: number): string {
+    return `${Math.round(amount).toLocaleString('en-GB')} EGP`;
+  }
+
   private load(): void {
     this.loadState.set('loading');
     this.subscriptionService.getByTeacher(this.teacherId).subscribe({
@@ -572,6 +698,17 @@ export class SubscriptionPanelComponent implements OnInit {
         this.loadState.set('loaded');
       },
       error: () => this.loadState.set('failed'),
+    });
+
+    // Both are for the activate form only, so neither blocks the panel: without them
+    // the boxes still work, they just cannot say what they are replacing or what it costs.
+    this.teachers.getTeacherById(this.teacherId).subscribe({
+      next: (p) => this.profile.set(p),
+      error: () => this.profile.set(null),
+    });
+    this.subscriptionService.getPricing().subscribe({
+      next: (r) => this.pricing.set(r),
+      error: () => this.pricing.set(null),
     });
   }
 

@@ -4,6 +4,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
   AdminInsightsService,
   AdminNote,
+  TeacherModuleUsage,
   TeacherUsageDetail,
 } from '../../../core/services/admin-insights.service';
 import { TeacherService } from '../../../core/services/teacher.service';
@@ -145,14 +146,57 @@ import { formatDate, timeAgo } from '../../../shared/utils/time-format';
 
           <p class="feat">
             Uses <b>{{ d.summary.featuresAdoptedCount }} of {{ d.summary.featuresEntitledCount }}</b>
-            features they pay for.
+            features they pay for. Every one of them is listed below.
           </p>
-          @if (neverOpened(); as never) {
-            <p class="never">Never opened: {{ never }}</p>
-          }
-          @if (lapsed(); as gave) {
-            <p class="cap">Used once and stopped: {{ gave }}</p>
-          }
+        </section>
+
+        <!-- ── Module by module ───────────────────────────────────────────
+             Listed, not counted. "4 of 10" does not say which four, and a tick
+             does not separate someone who opened Payments once from someone who
+             collects money every week — so each row carries the date and the
+             volume that do. -->
+        <section class="panel wide">
+          <h2>Module by module</h2>
+          <p class="cap">
+            What they have, what they actually do in it, and when they last did it.
+            Worst first — what they are not using is why you are here.
+          </p>
+
+          <div class="m-scroll">
+            <table class="modules">
+              <thead>
+                <tr>
+                  <th scope="col">Module</th>
+                  <th scope="col">State</th>
+                  <th scope="col">Last used</th>
+                  <th scope="col">In 30 days</th>
+                  <th scope="col">Ever</th>
+                  <th scope="col">Days used</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (m of d.moduleUsage; track m.module) {
+                  <tr [attr.data-state]="m.state">
+                    <th scope="row">{{ featureLabel(m.module) }}</th>
+                    <td><span class="state">{{ stateLabel(m) }}</span></td>
+                    <td class="txt-s">{{ m.lastUsedOn ? day(m.lastUsedOn) : '—' }}</td>
+                    <td class="tnum">{{ m.writes30 || '—' }}</td>
+                    <td class="tnum">{{ m.writesAllTime || '—' }}</td>
+                    <td class="tnum">
+                      {{ m.daysUsedAllTime ? m.daysUsedAllTime + (m.daysUsedAllTime === 1 ? ' day' : ' days') : '—' }}
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <p class="cap legend">
+            <b>Live</b> — used in the last 30 days ·
+            <b>Gave up on it</b> — used before, nothing recently ·
+            <b>Never opened</b> — pays for it, has never once used it ·
+            <b>Not on their plan</b> — they do not have it, so it is not a gap.
+          </p>
         </section>
 
         <!-- ── Notes ────────────────────────────────────────────────────── -->
@@ -410,6 +454,78 @@ import { formatDate, timeAgo } from '../../../shared/utils/time-format';
         cursor: default;
       }
 
+      /* Wide content scrolls inside its own box; the page never scrolls sideways. */
+      .m-scroll {
+        overflow-x: auto;
+      }
+      .modules {
+        width: 100%;
+        min-width: 560px;
+        border-collapse: collapse;
+        font-size: var(--t-sm);
+      }
+      .modules thead th {
+        padding: var(--s-2) var(--s-3);
+        text-align: left;
+        font-size: var(--t-xs);
+        font-weight: 600;
+        color: var(--ink-3);
+        white-space: nowrap;
+      }
+      .modules tbody th,
+      .modules tbody td {
+        padding: var(--s-2) var(--s-3);
+        text-align: left;
+      }
+      .modules tbody th {
+        font-weight: 650;
+        color: var(--ink);
+      }
+      .modules tbody tr:nth-child(odd) {
+        background: var(--surface-2);
+      }
+      .modules td.tnum {
+        text-align: right;
+      }
+
+      /* The state carries a word AND a colour; the word is never dropped, so the
+         table reads the same without colour. */
+      .state {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: var(--t-xs);
+        font-weight: 650;
+        white-space: nowrap;
+      }
+      tr[data-state='Live'] .state {
+        background: var(--live-soft);
+        color: var(--live);
+      }
+      tr[data-state='Lapsed'] .state {
+        background: var(--risk-soft);
+        color: var(--risk);
+      }
+      tr[data-state='NeverOpened'] .state {
+        background: var(--gone-soft);
+        color: var(--gone);
+      }
+      tr[data-state='NotOnTheirPlan'] .state {
+        background: var(--quiet-soft);
+        color: var(--ink-3);
+      }
+      /* A module they do not have is not a failing, so it recedes. */
+      tr[data-state='NotOnTheirPlan'] {
+        opacity: 0.62;
+      }
+      .legend b {
+        color: var(--ink-2);
+      }
+      .txt-s {
+        font-size: var(--t-xs);
+        color: var(--ink-2);
+      }
+
       .sk {
         height: 320px;
         border-radius: var(--r-md);
@@ -487,6 +603,27 @@ export class TeacherOverviewComponent {
     const list = this.detail()?.summary.featuresLapsed ?? [];
     return list.length ? list.map((f) => FEATURE_LABELS[f] ?? f).join(', ') : null;
   });
+
+  /**
+   * The state in words, with the number that justifies it. "Gave up on it" is a
+   * different conversation from "never opened", and a date is what tells them apart.
+   */
+  protected stateLabel(m: TeacherModuleUsage): string {
+    switch (m.state) {
+      case 'Live':
+        return 'Live';
+      case 'Lapsed':
+        return 'Gave up on it';
+      case 'NeverOpened':
+        return 'Never opened';
+      default:
+        return 'Not on their plan';
+    }
+  }
+
+  protected featureLabel(key: string): string {
+    return FEATURE_LABELS[key] ?? key;
+  }
 
   protected day(iso?: string | null): string {
     return formatDate(iso);

@@ -113,9 +113,18 @@ import { formatDate, timeAgo } from '../../shared/utils/time-format';
           <p class="feat">
             Uses <b>{{ row().featuresAdoptedCount }} of {{ row().featuresEntitledCount }}</b> features they pay for.
           </p>
+          @if (usingNow(); as using) {
+            <p class="using">Used in the last 30 days: {{ using }}</p>
+          }
+          @if (everUsed(); as ever) {
+            <p class="cap">Used at some point: {{ ever }}</p>
+          }
           @if (neverOpened(); as never) {
             <p class="never">Never opened: {{ never }}</p>
           }
+          <a class="link" [routerLink]="['/teacher', row().teacherId]">
+            See what they did in each one →
+          </a>
         </section>
       </div>
 
@@ -290,6 +299,22 @@ import { formatDate, timeAgo } from '../../shared/utils/time-format';
       }
       .pair b[data-tone='gone'] {
         color: var(--gone);
+      }
+      .using {
+        color: var(--live);
+        margin: var(--s-2) 0 0;
+        font-size: var(--t-sm);
+      }
+      .link {
+        display: inline-block;
+        margin-top: var(--s-2);
+        font-size: var(--t-sm);
+        font-weight: 600;
+        color: var(--accent);
+        text-decoration: none;
+      }
+      .link:hover {
+        text-decoration: underline;
       }
       .never {
         color: var(--risk);
@@ -519,6 +544,18 @@ export class TeacherRowDetailComponent {
     const r = this.row();
     if (r.studentCount === 0) return 'gone';
     return r.studentsAssignedToSession === 0 ? 'risk' : 'live';
+  });
+
+  /** Which modules they are actually in, named — the half "4 of 10" leaves out. */
+  protected readonly usingNow = computed(() => {
+    const list = this.row().modules ?? [];
+    return list.length ? list.map((f) => FEATURE_LABELS[f] ?? f).join(', ') : null;
+  });
+
+  /** Ever touched, so "gave up on it" is visible beside "never started". */
+  protected readonly everUsed = computed(() => {
+    const list = this.row().modulesAllTime ?? [];
+    return list.length ? list.map((f) => FEATURE_LABELS[f] ?? f).join(', ') : null;
   });
 
   protected readonly neverOpened = computed(() => {

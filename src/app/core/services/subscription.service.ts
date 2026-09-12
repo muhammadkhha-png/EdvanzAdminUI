@@ -7,6 +7,7 @@ import { ApiResult } from '../models/api-result.model';
 import {
   AdminActivateManagerialRequest,
   AdminActivateRequest,
+  AdminSubscriptionPricing,
   AdminExtendRequest,
   AdminPendingQueueItem,
   AdminSetEndDateRequest,
@@ -54,6 +55,13 @@ export class SubscriptionService {
    * POST /api/admin/subscriptions/activate
    * Manually activates a FULL subscription (SuperAdminOverride, no payment).
    */
+  /** The three monthly rates, so the activate form can price what is being typed into it. */
+  getPricing(): Observable<AdminSubscriptionPricing> {
+    return this.http
+      .get<ApiResult<AdminSubscriptionPricing>>(`${this.base}/admin/subscriptions/pricing`)
+      .pipe(map((r) => r.data));
+  }
+
   activate(request: AdminActivateRequest): Observable<CurrentSubscriptionDto> {
     return this.http
       .post<ApiResult<CurrentSubscriptionDto>>(
