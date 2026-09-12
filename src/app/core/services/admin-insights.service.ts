@@ -102,6 +102,10 @@ export interface TeacherUsage {
 
   firstActivityAt: string | null;
   lastActivityAt: string | null;
+  /** The TEACHER's own last sign-in — not the last thing anyone did on the account. */
+  lastLoginAt: string | null;
+  /** Days until the subscription ends; negative once it has. Render this, never the status band. */
+  subscriptionEndsInDays: number | null;
 
   /** Each pair is (total, the part that actually works). The gap is the story. */
   studentCount: number;
@@ -284,6 +288,8 @@ export interface UsageQuery {
   salesRepId?: number;
   unassignedSalesRep?: boolean;
   subscriptionStatus?: string;
+  /** Full / Managerial / ManagerialPlus on the current subscription. */
+  planType?: string;
   registeredFrom?: string;
   registeredTo?: string;
   /** Only teachers whose current subscription started within this many days. */
@@ -294,7 +300,20 @@ export interface UsageQuery {
   subscribedOnly?: boolean;
   /** Entitled to this feature and never opened it. */
   neverUsedFeature?: UsageModule;
-  sortBy?: 'LastActivity' | 'ActiveDays30' | 'TotalWrites30' | 'StudentCount' | 'RegisteredAt' | 'Name';
+  /**
+   * Floats accounts with something missing to the top — no students, students in no
+   * class, attendance never marked, or a subscription about to run out. An ORDERING,
+   * not a filter: nobody disappears when it is switched on.
+   */
+  incompleteFirst?: boolean;
+  sortBy?:
+    | 'LastActivity'
+    | 'ActiveDays30'
+    | 'TotalWrites30'
+    | 'StudentCount'
+    | 'RegisteredAt'
+    | 'SubscribedAt'
+    | 'Name';
   sortDirection?: 'Asc' | 'Desc';
 }
 
