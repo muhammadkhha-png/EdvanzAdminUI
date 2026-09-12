@@ -83,10 +83,12 @@ import { formatDate, formatDateTime } from '../../../shared/utils/time-format';
 
               @if (p.events.length === 0) {
                 <p class="cap">
-                  No individual sign-in on record
                   @if (logins()!.recordedSince) {
-                    — they have not signed in since recording started
-                  }.
+                    No individual sign-in on record — they have not signed in since
+                    recording started.
+                  } @else {
+                    No individual sign-in on record.
+                  }
                 </p>
               } @else {
                 <ul class="events">

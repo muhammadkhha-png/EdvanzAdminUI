@@ -32,11 +32,12 @@ export const TEACHERS_ROUTES: Routes = [
       import('./teacher-details/teacher-details.component').then(
         (m) => m.TeacherDetailsComponent,
       ),
-    data: { breadcrumb: 'Teacher details' },
+    data: { breadcrumb: 'Teacher' },
     children: [
       {
         // THE DEFAULT TAB: the state of the account on one screen.
         path: '',
+        data: { breadcrumb: 'Overview' },
         loadComponent: () =>
           import('./teacher-details/teacher-overview.component').then(
             (m) => m.TeacherOverviewComponent,
