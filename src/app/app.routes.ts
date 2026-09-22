@@ -104,6 +104,19 @@ export const APP_ROUTES: Routes = [
           import('./features/sales/sales.component').then((m) => m.SalesComponent),
       },
       {
+        // Video watch records whose own numbers disagree, across every teacher. It is a
+        // platform question — one account is the teacher's own screen to work, several at
+        // once is a build in circulation — so it lives with the system tools, not with a
+        // single teacher's detail.
+        path: 'watch-checks',
+        canActivate: [permissionGuard],
+        data: { breadcrumb: 'Watch checks', roles: ['SuperAdmin'] },
+        loadComponent: () =>
+          import('./features/watch-checks/watch-checks.component').then(
+            (m) => m.WatchChecksComponent,
+          ),
+      },
+      {
         path: 'subscription-requests',
         canActivate: [permissionGuard],
         data: { breadcrumb: 'Subscription requests', roles: ['SuperAdmin'] },

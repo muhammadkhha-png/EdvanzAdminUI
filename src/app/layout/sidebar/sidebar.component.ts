@@ -276,6 +276,7 @@ export class SidebarComponent {
       title: 'System',
       items: [
         { label: 'Sales', icon: '◆', route: '/sales', roles: ['SuperAdmin'] },
+        { label: 'Watch checks', icon: '≠', route: '/watch-checks', roles: ['SuperAdmin'] },
         { label: 'App version', icon: '📱', route: '/app-version', roles: ['SuperAdmin'] },
       ],
     },

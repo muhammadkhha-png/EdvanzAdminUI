@@ -369,6 +369,77 @@ export interface AdminNote {
  * but can be up to a day old — which is why every payload carries a `computedAt`
  * and `recomputeTeacher` exists for when someone needs a number refreshed now.
  */
+// ════════════════════════════════════════════════════════════════════════════
+// WATCH CHECKS — video watch records whose own numbers disagree
+// ════════════════════════════════════════════════════════════════════════════
+//
+// WHAT THIS IS FOR, and it is not what it sounds like. A student's watch row
+// records how much of the LESSON was covered and how long they SPENT on it, and
+// the player reports the speed it was playing at. When the covered share is more
+// than that speed could have produced in that time, the three numbers cannot all
+// be true. The teacher already sees such a row on their own analytics screen and
+// can talk to the student — one row under one teacher is a classroom matter and
+// needs nothing from this console.
+//
+// What no single account can see is the SAME impossible arithmetic under MANY
+// teachers at once, which is what a modified app build in circulation looks like.
+// That is the only question this screen exists to answer, which is why
+// `teachersAffected` is read against `teachersMeasured` and not on its own.
+//
+// It reports arithmetic. It does not establish that anybody cheated — a broken
+// player, a weak network or a phone with jumpy position reporting produces the
+// same disagreement — and nothing rendered from these types may say otherwise.
+// ════════════════════════════════════════════════════════════════════════════
+
+/** The set-level answer: one student, or a pattern? Read before any row. */
+export interface WatchCheckSummary {
+  /** Is the coverage measure switched on at all? False = nothing is being measured. */
+  measureActive: boolean;
+  /** Is the signal allowed to be shown? False = deliberately silenced, not absent. */
+  signalVisible: boolean;
+  /** Records in the window whose numbers disagree with themselves. */
+  signalCount: number;
+  /** Distinct teachers those records sit under — THE number. */
+  teachersAffected: number;
+  studentsAffected: number;
+  videosAffected: number;
+  /** Distinct teachers with any measured watching in the window — the denominator. */
+  teachersMeasured: number;
+  firstSignalAt: string | null;
+  lastSignalAt: string | null;
+  /** Days the window reaches back; 0 = all time. */
+  windowDays: number;
+}
+
+/** One record, with both sides of the arithmetic so a reader can check it. */
+export interface WatchCheckRow {
+  teacherId: number;
+  teacherName: string;
+  teacherCode: string;
+  teacherStudentId: number;
+  studentName: string;
+  studentCode: string;
+  videoAssetId: number;
+  videoTitle: string;
+  /** 0 when the lesson length is still unknown. */
+  videoDurationSeconds: number;
+  coveredSeconds: number;
+  /** Null, never 0, when the lesson length is unknown — a share of nothing is nothing. */
+  coveredPercent: number | null;
+  timeSpentSeconds: number;
+  /** Covered seconds per second spent — what the record implies the speed was. */
+  impliedRate: number | null;
+  /** What the player itself reported. Null = it never said, and 1.0 was assumed. */
+  reportedRate: number | null;
+  lastUpdatedAt: string;
+}
+
+/** Summary first, then the page of records behind it. */
+export interface WatchCheckReport {
+  summary: WatchCheckSummary;
+  rows: WatchCheckRow[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class AdminInsightsService {
   private readonly http = inject(HttpClient);
@@ -517,6 +588,33 @@ export class AdminInsightsService {
   ): Observable<AdminNote> {
     return this.http
       .post<ApiResult<AdminNote>>(`${this.base}/teachers/${teacherId}/notes`, body)
+      .pipe(map((r) => r.data));
+  }
+
+  /**
+   * WATCH CHECKS — records whose numbers disagree, across every teacher.
+   *
+   * Comes back EMPTY AND SUCCESSFUL when the coverage measure is off or the signal
+   * is silenced; `summary.measureActive` / `summary.signalVisible` say which, and the
+   * screen must say so rather than rendering it as "nothing found". Those are
+   * opposite findings.
+   *
+   * `windowDays` 0 = all time. Clamped server-side, never rejected.
+   */
+  getWatchChecks(
+    windowDays: number,
+    page: number,
+    pageSize: number,
+  ): Observable<PaginatedResponse<WatchCheckReport>> {
+    const params = new HttpParams()
+      .set('windowDays', windowDays)
+      .set('page', page)
+      .set('pageSize', pageSize);
+
+    return this.http
+      .get<ApiResult<PaginatedResponse<WatchCheckReport>>>(`${this.base}/video-integrity`, {
+        params,
+      })
       .pipe(map((r) => r.data));
   }
 
