@@ -10,7 +10,11 @@ import { ConsoleTrendPoint } from '../../core/services/admin-console.service';
  * of teachers, so a second scale would be the dual-axis lie.
  *
  * COLOR: a dedicated categorical trio, validated for colour-vision deficiency
- * (worst adjacent pair ΔE 19.6 deutan / 25.0 normal). Deliberately NOT the page's
+ * (worst adjacent pair ΔE 19.6 deutan / 25.0 normal). Parent sign-ups (added
+ * 2026-10) are deliberately NOT drawn: they count parents, who outnumber teacher
+ * registrations, and sharing the one axis would flatten the teacher bars. They
+ * appear only in the tooltip, the numbers table and the screen-reader summary, and
+ * only when the API sends the field (an older API omits it — "not known", never 0). Deliberately NOT the page's
  * green/amber/red, which mean healthy/slipping/lost here — reusing a status colour
  * as "series 3" would make a chart series look like a verdict.
  */
@@ -57,24 +61,17 @@ import { ConsoleTrendPoint } from '../../core/services/admin-console.service';
             (mouseleave)="hovered.set(null)"
           />
 
-          <rect
-            class="bar"
-            [attr.x]="c.regX"
-            [attr.y]="c.regY"
-            [attr.width]="barWidth()"
-            [attr.height]="c.regH"
-            [attr.fill]="series[0].color"
-            rx="4"
-          />
-          <rect
-            class="bar"
-            [attr.x]="c.subX"
-            [attr.y]="c.subY"
-            [attr.width]="barWidth()"
-            [attr.height]="c.subH"
-            [attr.fill]="series[1].color"
-            rx="4"
-          />
+          @for (b of c.bars; track b.key) {
+            <rect
+              class="bar"
+              [attr.x]="b.x"
+              [attr.y]="b.y"
+              [attr.width]="barWidth()"
+              [attr.height]="b.h"
+              [attr.fill]="b.color"
+              rx="4"
+            />
+          }
 
           <text class="axis" [attr.x]="c.x + bandWidth() / 2" [attr.y]="H - 12" text-anchor="middle">
             {{ c.label }}
@@ -101,6 +98,9 @@ import { ConsoleTrendPoint } from '../../core/services/admin-console.service';
       <div class="tip">
         <strong>{{ p.label }}</strong>
         <span><i [style.background]="series[0].color"></i>{{ p.registrations }} registered</span>
+        @if (hasParents()) {
+          <span>{{ p.parentSignups ?? '—' }} parent sign-ups</span>
+        }
         <span><i [style.background]="series[1].color"></i>{{ p.newSubscriptions }} subscribed</span>
         <span><i [style.background]="series[2].color"></i>{{ p.subscribersAtEnd }} subscribers by the end</span>
       </div>
@@ -115,6 +115,9 @@ import { ConsoleTrendPoint } from '../../core/services/admin-console.service';
             <tr>
               <th scope="col">Period</th>
               <th scope="col">Registered</th>
+              @if (hasParents()) {
+                <th scope="col">Parent sign-ups</th>
+              }
               <th scope="col">Subscribed</th>
               <th scope="col">Subscribers by the end</th>
             </tr>
@@ -124,6 +127,9 @@ import { ConsoleTrendPoint } from '../../core/services/admin-console.service';
               <tr>
                 <th scope="row">{{ p.label }}</th>
                 <td class="tnum">{{ p.registrations }}</td>
+                @if (hasParents()) {
+                  <td class="tnum">{{ p.parentSignups ?? '—' }}</td>
+                }
                 <td class="tnum">{{ p.newSubscriptions }}</td>
                 <td class="tnum">{{ p.subscribersAtEnd }}</td>
               </tr>
@@ -273,6 +279,11 @@ export class ConsoleTrendChartComponent {
     { key: 'lvl', label: 'Subscribers by the end', color: '#9333ea', isLine: true },
   ];
 
+  /** True once the API sends parent sign-ups; an older API omits the field entirely. */
+  protected readonly hasParents = computed(() =>
+    this.points().some((p) => p.parentSignups !== undefined && p.parentSignups !== null),
+  );
+
   protected readonly W = 760;
   protected readonly H = 260;
   protected readonly PAD_L = 34;
@@ -321,16 +332,26 @@ export class ConsoleTrendChartComponent {
       const x = this.PAD_L + index * band;
       const centre = x + band / 2;
 
+      // Bars in legend order, centred as a group with a 2px gap between each.
+      const values = [
+        { key: 'reg', value: p.registrations, color: this.series[0].color },
+        { key: 'sub', value: p.newSubscriptions, color: this.series[1].color },
+      ];
+
+      const groupWidth = values.length * bw + (values.length - 1) * 2;
+      const bars = values.map((v, i) => ({
+        key: v.key,
+        color: v.color,
+        x: centre - groupWidth / 2 + i * (bw + 2),
+        y: this.y(v.value),
+        h: Math.max(0, this.y(0) - this.y(v.value)),
+      }));
+
       return {
         index,
         label: p.label,
         x,
-        regX: centre - bw - 1,
-        regY: this.y(p.registrations),
-        regH: Math.max(0, this.y(0) - this.y(p.registrations)),
-        subX: centre + 1,
-        subY: this.y(p.newSubscriptions),
-        subH: Math.max(0, this.y(0) - this.y(p.newSubscriptions)),
+        bars,
         levelY: this.y(p.subscribersAtEnd),
       };
     }),
@@ -351,7 +372,9 @@ export class ConsoleTrendChartComponent {
     return (
       `Registrations, new subscriptions and subscriber count by period, ` +
       `${first.label} to ${last.label}. ` +
-      `Latest period: ${last.registrations} registered, ${last.newSubscriptions} subscribed, ` +
+      `Latest period: ${last.registrations} registered, ` +
+      (this.hasParents() ? `${last.parentSignups ?? 'unknown'} parent sign-ups, ` : '') +
+      `${last.newSubscriptions} subscribed, ` +
       `${last.subscribersAtEnd} subscribers by the end.`
     );
   });

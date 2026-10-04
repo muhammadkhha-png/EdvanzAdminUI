@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, HostListener, computed, inject, signal } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs';
@@ -19,7 +20,7 @@ import { AdminConsoleService, ConsoleSearch, ConsoleSearchHit } from '../../core
 @Component({
   selector: 'app-global-search',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, NgTemplateOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="wrap">
@@ -51,20 +52,17 @@ import { AdminConsoleService, ConsoleSearch, ConsoleSearchHit } from '../../core
                 <div class="group">
                   <h3>{{ g.title }}</h3>
                   @for (h of g.hits; track h.kind + h.id) {
-                    <button type="button" class="hit" role="option" (click)="go(h)">
-                      <span class="h-name">{{ h.fullName }}</span>
-                      <span class="h-meta">
-                        @if (h.code) {
-                          <span class="tnum">{{ h.code }}</span>
-                        }
-                        @if (h.phoneNumber) {
-                          <span class="tnum">{{ h.phoneNumber }}</span>
-                        }
-                        @if (h.teacherName && h.kind !== 'Teacher') {
-                          <span>with {{ h.teacherName }}</span>
-                        }
-                      </span>
-                    </button>
+                    @if (canOpen(h)) {
+                      <button type="button" class="hit" role="option" (click)="go(h)">
+                        <ng-container *ngTemplateOutlet="hitBody; context: { $implicit: h }" />
+                      </button>
+                    } @else {
+                      <!-- A parent account has no page in the console yet, so it is shown,
+                           not offered as a link that would go nowhere. -->
+                      <div class="hit static" role="option" aria-disabled="true">
+                        <ng-container *ngTemplateOutlet="hitBody; context: { $implicit: h }" />
+                      </div>
+                    }
                   }
                 </div>
               }
@@ -73,6 +71,21 @@ import { AdminConsoleService, ConsoleSearch, ConsoleSearchHit } from '../../core
         </div>
       }
     </div>
+
+    <ng-template #hitBody let-h>
+      <span class="h-name">{{ h.fullName }}</span>
+      <span class="h-meta">
+        @if (h.code) {
+          <span class="tnum">{{ h.code }}</span>
+        }
+        @if (h.phoneNumber) {
+          <span class="tnum">{{ h.phoneNumber }}</span>
+        }
+        @if (h.teacherName && h.kind !== 'Teacher') {
+          <span>with {{ h.teacherName }}</span>
+        }
+      </span>
+    </ng-template>
   `,
   styles: [
     `
@@ -145,8 +158,11 @@ import { AdminConsoleService, ConsoleSearch, ConsoleSearchHit } from '../../core
         text-align: left;
         cursor: pointer;
       }
-      .hit:hover,
-      .hit:focus-visible {
+      .hit.static {
+        cursor: default;
+      }
+      .hit:not(.static):hover,
+      .hit:not(.static):focus-visible {
         background: var(--accent-soft);
         outline: none;
       }
@@ -220,14 +236,23 @@ export class GlobalSearchComponent {
       { title: 'Teachers', hits: r.teachers },
       { title: 'Students on a roster', hits: r.students },
       { title: 'Student app accounts', hits: r.studentAccounts },
+      // Absent on an API older than the parent app release.
+      { title: 'Parent accounts', hits: r.parentAccounts ?? [] },
       { title: 'Assistants', hits: r.assistants },
     ];
   });
 
   /** Enter goes to the first hit, which is a teacher whenever there is one. */
   protected openFirst(): void {
-    const first = this.groups().flatMap((g) => g.hits)[0];
+    const first = this.groups()
+      .flatMap((g) => g.hits)
+      .find((h) => this.canOpen(h));
     if (first) this.go(first);
+  }
+
+  /** Every kind has somewhere to go except a parent account, which has no page yet. */
+  protected canOpen(hit: ConsoleSearchHit): boolean {
+    return hit.kind !== 'ParentAccount';
   }
 
   protected go(hit: ConsoleSearchHit): void {

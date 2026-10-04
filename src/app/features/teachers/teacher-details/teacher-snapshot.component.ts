@@ -45,6 +45,21 @@ const DAY_NAMES = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
             {{ s.studentAccounts.bound }} linked to a student
           </span>
         </div>
+        <!-- Parents. A dash means the API is older than these figures, not zero. -->
+        <div class="tile">
+          <span class="n tnum">{{ s.parents?.followingInApp ?? '—' }}</span>
+          <span class="l">parents following in the app</span>
+          <span class="c" [attr.data-tone]="(s.parents?.pendingInApp ?? 0) > 0 ? 'risk' : ''">
+            {{ s.parents?.pendingInApp ?? '—' }} waiting for the teacher
+          </span>
+        </div>
+        <div class="tile">
+          <span class="n tnum">{{ s.parents?.portalFollowers ?? '—' }}</span>
+          <span class="l">families following on the site</span>
+          <span class="c" [attr.data-tone]="(s.parents?.portalPending ?? 0) > 0 ? 'risk' : ''">
+            {{ s.parents?.portalPending ?? '—' }} waiting for the teacher
+          </span>
+        </div>
         <div class="tile">
           <span class="n tnum">{{ s.videos.total }}</span>
           <span class="l">videos</span>

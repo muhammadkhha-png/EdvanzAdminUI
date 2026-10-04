@@ -384,6 +384,14 @@ const SEGMENT_PAGE = 15;
           <b class="tnum">{{ d.platform.assistants }}</b> assistants ·
           <b class="tnum">{{ d.platform.centers }}</b> centres
         </p>
+        <!-- Parents. A dash means the API is older than these figures, not zero. -->
+        <p>
+          Parents:
+          <b class="tnum">{{ d.platform.parentAccounts ?? '—' }}</b> parent accounts ·
+          <b class="tnum">{{ d.platform.parentsFollowingInApp ?? '—' }}</b> following in the app ·
+          <b class="tnum">{{ d.platform.portalFollowers ?? '—' }}</b> following on the site ·
+          <b class="tnum">{{ d.platform.parentRequestsPendingInApp ?? '—' }}</b> waiting for a teacher
+        </p>
         @if (isOpenIn([d.growth.centerTeachers.segmentKey])) {
           <ng-container *ngTemplateOutlet="panel" />
         }

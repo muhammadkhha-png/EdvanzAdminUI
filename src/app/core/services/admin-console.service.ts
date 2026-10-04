@@ -146,6 +146,16 @@ export interface ConsolePlatform {
   linkedStudentAccounts: number;
   assistants: number;
   centers: number;
+  // Parent figures (added 2026-10). Optional: an API older than that release omits
+  // them, and the page must render a dash then, never a zero.
+  /** Parent app accounts on the platform. */
+  parentAccounts?: number;
+  /** Parent accounts following at least one child with a teacher in the app. */
+  parentsFollowingInApp?: number;
+  /** Families following on the parent site (parent.edvanz.io). */
+  portalFollowers?: number;
+  /** In-app follow requests still waiting for a teacher to answer. */
+  parentRequestsPendingInApp?: number;
 }
 
 export interface ConsoleDashboard {
@@ -175,6 +185,8 @@ export interface ConsoleTrendPoint {
   newSubscriptions: number;
   /** For the period still in progress this is measured at now, not at its future end. */
   subscribersAtEnd: number;
+  /** Parent app accounts created in the period. Absent on an older API — not zero. */
+  parentSignups?: number;
 }
 
 export interface ConsoleTrends {
@@ -209,7 +221,7 @@ export interface ConsoleRenewals {
 // ── Global search ───────────────────────────────────────────────────────────
 
 export interface ConsoleSearchHit {
-  /** Teacher | Student | StudentAccount | Assistant */
+  /** Teacher | Student | StudentAccount | ParentAccount | Assistant */
   kind: string;
   id: number;
   userId: number | null;
@@ -227,6 +239,8 @@ export interface ConsoleSearch {
   students: ConsoleSearchHit[];
   /** The student's own login. */
   studentAccounts: ConsoleSearchHit[];
+  /** The parent's own login (id = ParentUser id). Absent on an older API. */
+  parentAccounts?: ConsoleSearchHit[];
   assistants: ConsoleSearchHit[];
   totalHits: number;
 }
@@ -284,6 +298,17 @@ export interface ConsoleSnapshotContent {
   latestTitles: string[];
 }
 
+export interface ConsoleSnapshotParents {
+  /** Parents following a child with this teacher in the app. */
+  followingInApp: number;
+  /** In-app follow requests waiting for this teacher. */
+  pendingInApp: number;
+  /** Families following on the parent site. */
+  portalFollowers: number;
+  /** Parent-site requests waiting for this teacher. */
+  portalPending: number;
+}
+
 export interface ConsoleSnapshot {
   teacherId: number;
   classes: ConsoleSnapshotClass[];
@@ -291,6 +316,8 @@ export interface ConsoleSnapshot {
   onlineExams: ConsoleSnapshotContent;
   examsAndHomework: ConsoleSnapshotContent;
   studentAccounts: { active: number; bound: number };
+  /** Who follows this teacher's students. Absent on an older API — render a dash. */
+  parents?: ConsoleSnapshotParents;
   studentCount: number;
   studentsInClasses: number;
 }
