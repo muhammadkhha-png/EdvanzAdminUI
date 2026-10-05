@@ -19,6 +19,8 @@ export const FEATURE_LABELS: Record<string, string> = {
   ExamsHomework: 'Exams & homework',
   Messaging: 'Messaging',
   ParentPortal: 'Parent portal',
+  // In-app one-way messages to students (added 2026-09-28) — distinct from the WhatsApp "Messaging".
+  Announcements: 'Messages to students',
 };
 
 /** How often the account is worked. */

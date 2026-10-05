@@ -50,7 +50,8 @@ export type UsageModule =
   | 'ExamsHomework'
   | 'Messaging'
   | 'ParentPortal'
-  | 'EventPayments';
+  | 'EventPayments'
+  | 'Announcements';
 
 /** One teacher on the usage grid. */
 export interface TeacherUsage {
@@ -147,6 +148,15 @@ export interface TeacherOperator {
   isActive: boolean;
   lastLoginAt: string | null;
   lastActivityAt: string | null;
+  /** App build this person last used (X-App-Build); null until they use a build that sends it (2026-10 on). */
+  lastAppBuild?: number | null;
+  /** 'android' | 'ios', beside lastAppBuild. */
+  lastAppPlatform?: string | null;
+  lastAppSeenAt?: string | null;
+  /** Last time they used an app too old to send its build. */
+  lastSeenWithoutBuildAt?: string | null;
+  /** True when the newest sighting is on such an old app — they will have to update. */
+  stillOnOldApp?: boolean;
 }
 
 /** Everything the Teacher 360 usage tab draws. */

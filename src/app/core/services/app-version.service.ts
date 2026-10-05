@@ -29,6 +29,24 @@ export interface AppVersionConfig {
   ios: AppVersionPlatformConfig;
 }
 
+/** Accounts last seen on one app build (GET /api/admin/app-version/usage). */
+export interface AppBuildUsage {
+  platform: string;
+  build: number;
+  users: number;
+  /** Below the platform's current minimum: these accounts get the update screen. */
+  belowMinimum: boolean;
+}
+
+/** Who is on which build, and who is still on an app too old to report one. */
+export interface AppVersionUsage {
+  windowDays: number;
+  asOfUtc: string;
+  builds: AppBuildUsage[];
+  oldAppUsers: number;
+  oldAppUsersByRole: { role: string; users: number }[];
+}
+
 /**
  * SuperAdmin app-version / update-gate configuration.
  * GET/PUT /api/admin/app-version — both require a SuperAdmin token (attached by
@@ -44,6 +62,13 @@ export class AppVersionService {
   getConfig(): Observable<AppVersionConfig> {
     return this.http
       .get<ApiResult<AppVersionConfig>>(`${this.base}/admin/app-version`)
+      .pipe(map((r) => r.data));
+  }
+
+  /** GET /api/admin/app-version/usage — accounts per build over the last N days (default 30). */
+  getUsage(days = 30): Observable<AppVersionUsage> {
+    return this.http
+      .get<ApiResult<AppVersionUsage>>(`${this.base}/admin/app-version/usage`, { params: { days } })
       .pipe(map((r) => r.data));
   }
 

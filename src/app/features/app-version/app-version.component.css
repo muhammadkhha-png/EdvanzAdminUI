@@ -43,3 +43,44 @@
   font-size: 1.2rem;
   line-height: 1;
 }
+
+.usage-card {
+  margin-top: 1.25rem;
+  padding: 1rem 1.25rem;
+}
+.usage-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.usage-help {
+  color: var(--ink-3);
+  font-size: var(--t-xs, 0.8125rem);
+  margin: 0.5rem 0 0.75rem;
+}
+.old-app {
+  color: var(--risk);
+  font-weight: 600;
+}
+.old-app.none {
+  color: var(--ink-3);
+  font-weight: 400;
+}
+.below-min {
+  color: var(--risk);
+  font-size: var(--t-xs, 0.8125rem);
+  font-weight: 600;
+}
+.usage-table {
+  max-width: 34rem;
+}
+.sk {
+  height: 4rem;
+  border-radius: 8px;
+  background: var(--line, #eef0f4);
+}
+.muted {
+  color: var(--ink-3);
+}
+

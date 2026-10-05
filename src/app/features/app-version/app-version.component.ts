@@ -10,6 +10,7 @@ import {
   AppVersionConfig,
   AppVersionPlatformConfig,
   AppVersionService,
+  AppVersionUsage,
 } from '../../core/services/app-version.service';
 import { ToastService } from '../../core/services/toast.service';
 
@@ -68,6 +69,11 @@ export class AppVersionComponent implements OnInit {
   protected readonly loadError = signal(false);
   protected readonly saving = signal(false);
 
+  /** Who is on which build (last 30 days). Null while loading or when the read failed. */
+  protected readonly usage = signal<AppVersionUsage | null>(null);
+  protected readonly usageLoading = signal(true);
+  protected readonly usageError = signal(false);
+
   /** Drives the two form sections and their headings. */
   protected readonly platforms: readonly { key: PlatformKey; label: string; icon: string }[] = [
     { key: 'android', label: 'Android', icon: '🤖' },
@@ -81,6 +87,32 @@ export class AppVersionComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
+    this.loadUsage();
+  }
+
+  protected loadUsage(): void {
+    this.usageLoading.set(true);
+    this.usageError.set(false);
+    this.appVersionService.getUsage(30).subscribe({
+      next: (u) => {
+        this.usage.set(u);
+        this.usageLoading.set(false);
+      },
+      error: () => {
+        this.usageLoading.set(false);
+        this.usageError.set(true);
+      },
+    });
+  }
+
+  /** "12 Student, 3 Teacher" for the old-app sentence. */
+  protected roleSummary(u: AppVersionUsage): string {
+    return u.oldAppUsersByRole.map((r) => `${r.users} ${r.role}`).join(', ');
+  }
+
+  /** "Android" / "iPhone" for a usage row. */
+  protected platformLabel(platform: string): string {
+    return platform === 'ios' ? 'iPhone' : platform === 'android' ? 'Android' : platform;
   }
 
   protected load(): void {
@@ -121,6 +153,8 @@ export class AppVersionComponent implements OnInit {
         this.form.markAsPristine();
         this.saving.set(false);
         this.toast.success('App version settings saved.');
+        // "Below minimum" depends on the minimum just saved.
+        this.loadUsage();
       },
       error: () => this.saving.set(false),
     });

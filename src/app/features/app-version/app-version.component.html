@@ -132,3 +132,63 @@
     </div>
   </form>
 }
+
+<section class="card usage-card" aria-labelledby="usage-title">
+  <div class="usage-head">
+    <h2 id="usage-title" class="h6 m-0">Who is on which app version</h2>
+    <button type="button" class="btn btn-sm btn-outline-secondary" (click)="loadUsage()" [disabled]="usageLoading()">
+      {{ usageLoading() ? 'Loading…' : 'Refresh' }}
+    </button>
+  </div>
+  <p class="usage-help">
+    Accounts seen in the last 30 days. App versions from October 2026 on report their build; older ones cannot,
+    and are counted under "still on an old app". Raise the minimum only once the new version is live for everyone
+    on Google Play and the App Store — a phone below it is stopped at once.
+  </p>
+
+  @if (usageLoading() && !usage()) {
+    <div class="sk"></div>
+  } @else if (usageError()) {
+    <p class="text-danger">Could not load the app-version figures. Try Refresh.</p>
+  } @else {
+    @if (usage(); as u) {
+    <p class="old-app" [class.none]="u.oldAppUsers === 0">
+      @if (u.oldAppUsers === 0) {
+        Nobody seen on an old app version in the last {{ u.windowDays }} days.
+      } @else {
+        <strong>{{ u.oldAppUsers }}</strong> {{ u.oldAppUsers === 1 ? 'account is' : 'accounts are' }} still on an app
+        version too old to report its build
+        @if (u.oldAppUsersByRole.length > 0) {
+          ({{ roleSummary(u) }})
+        }
+        — they would be stopped if the old-app refusal were turned on.
+      }
+    </p>
+
+    @if (u.builds.length === 0) {
+      <p class="muted">No account has used a version that reports its build yet.</p>
+    } @else {
+      <table class="table table-sm usage-table">
+        <thead>
+          <tr><th scope="col">Platform</th><th scope="col">Build</th><th scope="col">Accounts</th><th scope="col"></th></tr>
+        </thead>
+        <tbody>
+          @for (b of u.builds; track b.platform + b.build) {
+            <tr>
+              <td>{{ platformLabel(b.platform) }}</td>
+              <td>{{ b.build }}</td>
+              <td>{{ b.users }}</td>
+              <td>
+                @if (b.belowMinimum) {
+                  <span class="below-min">below minimum — sees the update screen</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+    }
+  }
+</section>
+

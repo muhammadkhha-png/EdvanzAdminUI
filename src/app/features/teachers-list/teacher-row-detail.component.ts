@@ -147,6 +147,13 @@ import { formatDate, timeAgo } from '../../shared/utils/time-format';
                 <span class="p-seen">
                   last seen {{ o.lastActivityAt || o.lastLoginAt ? ago(o.lastActivityAt ?? o.lastLoginAt) : 'never' }}
                 </span>
+                @if (o.stillOnOldApp) {
+                  <span class="p-oldapp" title="Last seen on an app version too old to report its build. They will need to update before the old-app refusal is turned on.">
+                    old app version
+                  </span>
+                } @else if (o.lastAppBuild) {
+                  <span class="p-seen">{{ o.lastAppPlatform === 'ios' ? 'iPhone' : 'Android' }} build {{ o.lastAppBuild }}</span>
+                }
               </li>
             }
           </ul>
@@ -353,6 +360,11 @@ import { formatDate, timeAgo } from '../../shared/utils/time-format';
       }
       .p-removed {
         color: var(--gone);
+        font-size: var(--t-xs);
+        font-weight: 600;
+      }
+      .p-oldapp {
+        color: var(--risk);
         font-size: var(--t-xs);
         font-weight: 600;
       }
