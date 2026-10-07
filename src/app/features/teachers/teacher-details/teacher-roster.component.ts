@@ -1,7 +1,16 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { debounceTime, distinctUntilChanged } from 'rxjs';
+import {
+  EMPTY,
+  Subject,
+  catchError,
+  debounceTime,
+  distinctUntilChanged,
+  map,
+  switchMap,
+} from 'rxjs';
 import { StudentService } from '../../../core/services/student.service';
 import { StudentAccountService } from '../../../core/services/student-account.service';
 import { StudentAdminListItem } from '../../../core/models/student.model';
@@ -120,41 +129,57 @@ export class TeacherRosterComponent {
 
   private page = 1;
   private readonly teacherId = Number(this.route.parent?.snapshot.paramMap.get('id') ?? 0);
+  private readonly requests = new Subject<number>();
 
   constructor() {
-    this.fetch();
+    // switchMap drops a response the moment a newer request starts, so two searches in
+    // flight can never both land in the list (that showed every student twice).
+    this.requests
+      .pipe(
+        switchMap((page) => {
+          this.loading.set(true);
+          return this.students
+            .getAllStudents({
+              teacherId: this.teacherId,
+              page,
+              pageSize: PAGE,
+              search: this.search.value.trim() || undefined,
+            })
+            .pipe(
+              map((res) => ({ page, res })),
+              catchError(() => {
+                this.loading.set(false);
+                return EMPTY;
+              }),
+            );
+        }),
+        takeUntilDestroyed(),
+      )
+      .subscribe(({ page, res }) => {
+        this.rows.update((c) => mergePage(c, res.data, page, (s) => s.id));
+        this.total.set(res.totalCount);
+        this.loading.set(false);
+      });
+
+    this.requests.next(this.page);
     this.search.valueChanges
-      .pipe(debounceTime(350), distinctUntilChanged())
+      .pipe(
+        map((v) => v.trim()),
+        debounceTime(350),
+        distinctUntilChanged(),
+        takeUntilDestroyed(),
+      )
       .subscribe(() => {
         this.page = 1;
         this.rows.set([]);
-        this.fetch();
+        this.requests.next(this.page);
       });
   }
 
   protected loadMore(): void {
     if (this.loading()) return;
     this.page += 1;
-    this.fetch();
-  }
-
-  private fetch(): void {
-    this.loading.set(true);
-    this.students
-      .getAllStudents({
-        teacherId: this.teacherId,
-        page: this.page,
-        pageSize: PAGE,
-        search: this.search.value.trim() || undefined,
-      })
-      .subscribe({
-        next: (res) => {
-          this.rows.update((c) => [...c, ...res.data]);
-          this.total.set(res.totalCount);
-          this.loading.set(false);
-        },
-        error: () => this.loading.set(false),
-      });
+    this.requests.next(this.page);
   }
 
   protected day(iso?: string | null): string {
@@ -284,41 +309,56 @@ export class TeacherStudentAccountsComponent {
 
   private page = 1;
   private readonly teacherId = Number(this.route.parent?.snapshot.paramMap.get('id') ?? 0);
+  private readonly requests = new Subject<number>();
 
   constructor() {
-    this.fetch();
+    // Same rule as the Students tab: only the newest request may write to the list.
+    this.requests
+      .pipe(
+        switchMap((page) => {
+          this.loading.set(true);
+          return this.accounts
+            .getStudentAccounts({
+              teacherId: this.teacherId,
+              page,
+              pageSize: PAGE,
+              search: this.search.value.trim() || undefined,
+            })
+            .pipe(
+              map((res) => ({ page, res })),
+              catchError(() => {
+                this.loading.set(false);
+                return EMPTY;
+              }),
+            );
+        }),
+        takeUntilDestroyed(),
+      )
+      .subscribe(({ page, res }) => {
+        this.rows.update((c) => mergePage(c, res.data, page, (a) => a.studentAccountId));
+        this.total.set(res.totalCount);
+        this.loading.set(false);
+      });
+
+    this.requests.next(this.page);
     this.search.valueChanges
-      .pipe(debounceTime(350), distinctUntilChanged())
+      .pipe(
+        map((v) => v.trim()),
+        debounceTime(350),
+        distinctUntilChanged(),
+        takeUntilDestroyed(),
+      )
       .subscribe(() => {
         this.page = 1;
         this.rows.set([]);
-        this.fetch();
+        this.requests.next(this.page);
       });
   }
 
   protected loadMore(): void {
     if (this.loading()) return;
     this.page += 1;
-    this.fetch();
-  }
-
-  private fetch(): void {
-    this.loading.set(true);
-    this.accounts
-      .getStudentAccounts({
-        teacherId: this.teacherId,
-        page: this.page,
-        pageSize: PAGE,
-        search: this.search.value.trim() || undefined,
-      })
-      .subscribe({
-        next: (res) => {
-          this.rows.update((c) => [...c, ...res.data]);
-          this.total.set(res.totalCount);
-          this.loading.set(false);
-        },
-        error: () => this.loading.set(false),
-      });
+    this.requests.next(this.page);
   }
 
   /** The link that belongs to THIS teacher — an account may be linked to several. */
@@ -357,6 +397,16 @@ export class TeacherStudentAccountsComponent {
   protected ago(iso?: string | null): string {
     return timeAgo(iso);
   }
+}
+
+/**
+ * Page 1 replaces the list; a later page appends only rows not already shown, so a
+ * row that shifted between pages (a student added mid-scroll) is never listed twice.
+ */
+function mergePage<T>(current: T[], incoming: T[], page: number, key: (row: T) => unknown): T[] {
+  if (page === 1) return incoming;
+  const seen = new Set(current.map(key));
+  return [...current, ...incoming.filter((r) => !seen.has(key(r)))];
 }
 
 /** Styles every one of these tabs shares. Written once rather than pasted into each. */
